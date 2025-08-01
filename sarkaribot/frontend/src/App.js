@@ -462,7 +462,8 @@ const JobsList = ({
 
   useEffect(() => {
     fetchJobs(currentPage);
-  }, [currentPage, apiEndpoint, JSON.stringify(filters)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, apiEndpoint]);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
