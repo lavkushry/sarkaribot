@@ -3,6 +3,12 @@ SEO automation models for SarkariBot.
 
 Implements NLP-powered metadata generation, sitemap management,
 and structured data handling for government job postings.
+
+Advanced Database Indexing Strategy:
+- Composite indexes for common query patterns
+- Partial indexes on active/filtered records only
+- Performance optimization for SEO operations
+- Full-text search capabilities on titles and content
 """
 
 from django.db import models
@@ -54,6 +60,8 @@ class SitemapEntry(TimestampedModel):
             models.Index(fields=['is_active', '-priority']),
             models.Index(fields=['change_frequency']),
             models.Index(fields=['-last_modified']),
+            # Advanced indexes for common query patterns
+            models.Index(fields=['-priority', 'change_frequency', '-last_modified'], name='seo_sitemap_generation_idx'),
         ]
     
     def __str__(self) -> str:
@@ -156,6 +164,11 @@ class SEOMetadata(TimestampedModel):
             models.Index(fields=['url_path']),
             models.Index(fields=['generation_method']),
             models.Index(fields=['-quality_score']),
+            # Advanced indexes for SEO operations
+            models.Index(fields=['title'], name='seo_seometa_title_idx'),
+            models.Index(fields=['canonical_url'], name='seo_seometa_canonical_url_idx'),
+            models.Index(fields=['content_type', '-created_at'], name='seo_seometa_content_type_created_idx'),
+            models.Index(fields=['og_type'], name='seo_seometa_og_type_idx'),
         ]
         unique_together = [('content_type', 'content_id')]
     
@@ -220,6 +233,10 @@ class KeywordTracking(TimestampedModel):
             models.Index(fields=['current_position']),
             models.Index(fields=['is_target_keyword', 'current_position']),
             models.Index(fields=['-last_checked']),
+            # Advanced indexes for performance analysis
+            models.Index(fields=['target_url'], name='seo_keyword_target_url_idx'),
+            models.Index(fields=['-search_volume', 'difficulty_score'], name='seo_keyword_volume_difficulty_idx'),
+            models.Index(fields=['best_position', 'current_position'], name='seo_keyword_position_tracking_idx'),
         ]
         unique_together = [('keyword', 'target_url')]
     
@@ -292,6 +309,10 @@ class SEOAuditLog(TimestampedModel):
             models.Index(fields=['audit_type', '-created_at']),
             models.Index(fields=['status', '-created_at']),
             models.Index(fields=['content_type', 'content_id']),
+            # Advanced indexes for audit analysis
+            models.Index(fields=['triggered_by'], name='seo_audit_triggered_by_idx'),
+            models.Index(fields=['processing_time', 'items_processed'], name='seo_audit_performance_idx'),
+            models.Index(fields=['status'], name='seo_audit_status_idx'),
         ]
     
     def __str__(self) -> str:
