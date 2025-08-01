@@ -44,11 +44,54 @@ const JobDetailPage = () => {
   // SEO metadata update
   useEffect(() => {
     if (job && job.seo_metadata) {
+      // Update page title
       document.title = job.seo_metadata.title || job.title;
       
+      // Update meta description
       const metaDescription = document.querySelector('meta[name="description"]');
       if (metaDescription) {
         metaDescription.content = job.seo_metadata.description || job.description;
+      }
+      
+      // Update or create OpenGraph meta tags
+      if (job.seo_metadata.open_graph) {
+        Object.entries(job.seo_metadata.open_graph).forEach(([property, content]) => {
+          if (content) {
+            let metaTag = document.querySelector(`meta[property="${property}"]`);
+            if (!metaTag) {
+              metaTag = document.createElement('meta');
+              metaTag.setAttribute('property', property);
+              document.head.appendChild(metaTag);
+            }
+            metaTag.setAttribute('content', content);
+          }
+        });
+      }
+      
+      // Update or create Twitter Card meta tags
+      if (job.seo_metadata.twitter_card) {
+        Object.entries(job.seo_metadata.twitter_card).forEach(([name, content]) => {
+          if (content) {
+            let metaTag = document.querySelector(`meta[name="${name}"]`);
+            if (!metaTag) {
+              metaTag = document.createElement('meta');
+              metaTag.setAttribute('name', name);
+              document.head.appendChild(metaTag);
+            }
+            metaTag.setAttribute('content', content);
+          }
+        });
+      }
+      
+      // Update canonical URL
+      if (job.seo_metadata.canonical_url) {
+        let canonicalLink = document.querySelector('link[rel="canonical"]');
+        if (!canonicalLink) {
+          canonicalLink = document.createElement('link');
+          canonicalLink.setAttribute('rel', 'canonical');
+          document.head.appendChild(canonicalLink);
+        }
+        canonicalLink.setAttribute('href', window.location.origin + job.seo_metadata.canonical_url);
       }
     }
   }, [job]);
@@ -339,6 +382,13 @@ const JobDetailPage = () => {
       {job.seo_metadata?.structured_data && (
         <script type="application/ld+json">
           {JSON.stringify(job.seo_metadata.structured_data)}
+        </script>
+      )}
+      
+      {/* Breadcrumb Structured Data */}
+      {job.seo_metadata?.breadcrumb_schema && (
+        <script type="application/ld+json">
+          {JSON.stringify(job.seo_metadata.breadcrumb_schema)}
         </script>
       )}
     </div>

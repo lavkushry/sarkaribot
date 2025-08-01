@@ -174,16 +174,57 @@ class JobPostingDetailSerializer(serializers.ModelSerializer):
         ]
     
     def get_seo_metadata(self, obj) -> Dict[str, Any]:
-        """Get SEO metadata for the job."""
-        return {
-            'title': obj.seo_title,
-            'description': obj.seo_description,
-            'keywords': obj.keywords.split(', ') if obj.keywords else [],
-            'canonical_url': obj.canonical_url,
-            'structured_data': obj.structured_data,
-            'meta_tags': obj.meta_tags,
-            'open_graph_tags': obj.open_graph_tags,
-        }
+        """Get comprehensive SEO metadata for the job."""
+        from apps.seo.engine import seo_engine
+        from apps.seo.signals import _prepare_job_data_for_seo
+        
+        # Check if we have comprehensive metadata stored
+        if (obj.structured_data and obj.open_graph_tags and 
+            obj.seo_title and obj.seo_description):
+            
+            return {
+                'title': obj.seo_title,
+                'description': obj.seo_description,
+                'keywords': obj.keywords.split(', ') if obj.keywords else [],
+                'canonical_url': obj.canonical_url,
+                'structured_data': obj.structured_data,
+                'breadcrumb_schema': {
+                    "@context": "https://schema.org",
+                    "@type": "BreadcrumbList",
+                    "itemListElement": obj.breadcrumbs
+                } if obj.breadcrumbs else None,
+                'open_graph': obj.open_graph_tags,
+                'twitter_card': obj.meta_tags,
+                'meta_robots': 'index, follow',
+                'last_modified': obj.updated_at.isoformat() if obj.updated_at else None,
+            }
+        
+        # Generate comprehensive metadata if not stored (fallback)
+        try:
+            job_data = _prepare_job_data_for_seo(obj)
+            request = self.context.get('request')
+            request_url = ""
+            
+            if request:
+                request_url = request.build_absolute_uri(f'/jobs/{obj.slug}/')
+            
+            comprehensive_metadata = seo_engine.generate_comprehensive_metadata(
+                job_data, request_url
+            )
+            
+            return comprehensive_metadata
+            
+        except Exception as e:
+            # Fallback to basic metadata
+            return {
+                'title': obj.seo_title or obj.title,
+                'description': obj.seo_description or obj.description[:160],
+                'keywords': obj.keywords.split(', ') if obj.keywords else [],
+                'canonical_url': obj.canonical_url or f'/jobs/{obj.slug}/',
+                'structured_data': obj.structured_data,
+                'open_graph': obj.open_graph_tags,
+                'twitter_card': obj.meta_tags,
+            }
     
     def get_breadcrumbs(self, obj) -> list:
         """Get breadcrumb navigation data."""
