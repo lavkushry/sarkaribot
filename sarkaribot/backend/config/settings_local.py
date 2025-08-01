@@ -1,44 +1,50 @@
 """
-Django settings for local development with SQLite
+Quick local development settings for SarkariBot.
+
+This file provides a minimal configuration for running SarkariBot locally
+without requiring environment setup. Use this for:
+- Quick testing and development
+- Running migrations
+- Initial project setup
+
+For production or advanced development, use the proper settings structure:
+- config.settings.development (with .env file)
+- config.settings.production (for deployment)
 """
 
 from .settings.base import *
 import os
 
-# SECURITY WARNING: don't run with debug turned on in production!
+# Override settings for simple local development
 DEBUG = True
+ALLOWED_HOSTS = ['*']
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*']
-
-# Database Configuration for Local Development (SQLite)
+# Simple SQLite database - no setup required
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR / 'db_local.sqlite3',
     }
 }
 
-# Cache Configuration (Simple local cache)
+# Use dummy cache - no Redis required
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'sarkaribot-cache',
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
     }
 }
 
-# CORS configuration for development
+# Console email backend - emails printed to console
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# CORS - Allow all origins for local development
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
 
-# Static files configuration
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Celery - Run synchronously for simple setup
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
 
-# Media files configuration
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
-# Logging configuration
+# Simple logging to console
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -59,18 +65,13 @@ LOGGING = {
     },
 }
 
-# Enable Django admin
-ADMIN_ENABLED = True
+# Create necessary directories
+for directory in [BASE_DIR / 'media', BASE_DIR / 'static', BASE_DIR / 'logs']:
+    directory.mkdir(exist_ok=True)
 
-# Django REST Framework settings
-REST_FRAMEWORK.update({
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ]
-})
-
-print("✅ Local development settings loaded successfully!")
-print("📊 Database: SQLite")
-print("📊 Cache: Local Memory")
-print("📊 Debug Mode: True")
+print("🏠 Local development settings loaded")
+print("📊 Database: SQLite (no setup required)")
+print("💾 Cache: Dummy cache (no Redis required)")
+print("📧 Email: Console backend")
+print("🔧 Celery: Synchronous execution")
+print("✨ Ready for local development!")
