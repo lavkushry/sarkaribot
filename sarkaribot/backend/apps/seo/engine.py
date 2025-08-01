@@ -351,5 +351,8 @@ class NLPSEOEngine:
         }
 
 
+# Backward compatibility alias
+SEOEngine = NLPSEOEngine
+
 # Global instance for use throughout the application
 seo_engine = NLPSEOEngine()
