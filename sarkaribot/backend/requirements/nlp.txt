@@ -1,14 +1,28 @@
 # Core NLP dependencies compatible with Python 3.12
+# Main NLP library for keyword extraction and content analysis
+spacy>=3.7.0,<4.0.0
+
 # Basic text processing
 textblob==0.17.1
-nltk==3.8.1
+nltk>=3.8.1
 
-# Advanced NLP (alternative to spaCy)
-scikit-learn==1.3.0
-numpy==1.24.3
-pandas==2.0.3
+# Machine learning for advanced NLP features
+scikit-learn>=1.3.0,<2.0.0
+numpy>=1.24.3,<2.0.0
+pandas>=2.0.3,<3.0.0
 
 # SEO and text analysis
-python-slugify==8.0.1
-beautifulsoup4==4.12.2
-lxml==4.9.3
+python-slugify>=8.0.1
+beautifulsoup4>=4.12.2
+lxml>=4.9.3
+
+# Language processing utilities
+langdetect>=1.0.9
+contractions>=0.1.73
+
+# Performance optimizations
+cython>=0.29.0  # Required for spaCy compilation
+
+# Note: After installing spacy, run:
+# python -m spacy download en_core_web_sm
+# Or use the setup script: python scripts/setup_nlp.py

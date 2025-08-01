@@ -55,23 +55,33 @@ class NLPSEOEngine:
         self.seo_keywords_max_count = getattr(settings, 'SEO_KEYWORDS_MAX_COUNT', 7)
     
     def _load_nlp_model(self) -> None:
-        """Load spaCy English model with fallback."""
+        """Load spaCy English model with comprehensive fallback."""
         if not SPACY_AVAILABLE:
-            logger.warning("spaCy not available - using basic text processing")
+            logger.warning(
+                "spaCy not available - using fallback text processing. "
+                "To enable full NLP features, install spaCy: pip install spacy && python -m spacy download en_core_web_sm"
+            )
             self.nlp = None
             return
             
         try:
             self.nlp = spacy.load("en_core_web_sm")
-            logger.info("Successfully loaded spaCy English model")
+            logger.info("Successfully loaded spaCy English model with full NLP capabilities")
         except OSError:
+            logger.warning(
+                "spaCy English model 'en_core_web_sm' not found. "
+                "Install it with: python -m spacy download en_core_web_sm"
+            )
             try:
                 # Fallback to basic English model
                 self.nlp = spacy.blank("en")
-                logger.warning("Using basic spaCy model - install en_core_web_sm for better performance")
+                logger.warning("Using basic spaCy model - limited NLP features available")
             except Exception as e:
                 logger.error(f"Failed to initialize spaCy: {e}")
                 self.nlp = None
+        except Exception as e:
+            logger.error(f"Unexpected error loading spaCy model: {e}")
+            self.nlp = None
     
     def generate_seo_metadata(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -164,34 +174,48 @@ class NLPSEOEngine:
             return self._extract_keywords_fallback(job_data)
     
     def _extract_keywords_fallback(self, job_data: Dict[str, Any]) -> List[str]:
-        """Fallback keyword extraction without spaCy."""
+        """Enhanced fallback keyword extraction without spaCy."""
         text = (job_data.get('title', '') + " " + 
                 job_data.get('description', '') + " " +
                 job_data.get('department', '')).lower()
         
-        # Government-specific keywords
+        # Enhanced government-specific keywords
         govt_keywords = [
             'government', 'sarkari', 'recruitment', 'vacancy', 'notification',
-            'application', 'exam', 'selection', 'job', 'post', 'position'
+            'application', 'exam', 'selection', 'job', 'post', 'position',
+            'railway', 'police', 'bank', 'clerk', 'officer', 'engineer',
+            'teacher', 'professor', 'doctor', 'nurse', 'constable', 'inspector',
+            'ias', 'ips', 'upsc', 'ssc', 'rrb', 'ibps', 'gate', 'net',
+            'junior', 'senior', 'assistant', 'manager', 'supervisor'
         ]
         
-        # Extract words that appear in government context
-        words = re.findall(r'\b\w{3,}\b', text)
+        # Extract meaningful words (improved pattern)
+        words = re.findall(r'\b[a-zA-Z]{3,}\b', text)
         keywords = []
+        word_frequency = {}
         
+        # Count word frequency for better ranking
         for word in words:
-            if (word not in STOP_WORDS and 
-                len(word) > 2 and 
-                word.isalpha() and
-                len(keywords) < 10):
+            if word not in STOP_WORDS and word.isalpha():
+                word_frequency[word] = word_frequency.get(word, 0) + 1
+        
+        # Sort by frequency and relevance
+        for word, freq in sorted(word_frequency.items(), key=lambda x: x[1], reverse=True):
+            if len(keywords) >= 10:
+                break
+            if len(word) > 2:
                 keywords.append(word)
         
-        # Add government-specific terms if found
+        # Add government-specific terms if found (prioritize these)
+        priority_keywords = []
         for govt_word in govt_keywords:
             if govt_word in text and govt_word not in keywords:
-                keywords.append(govt_word)
+                priority_keywords.append(govt_word)
         
-        return keywords[:7]  # Return top 7 keywords
+        # Combine with priority keywords first
+        final_keywords = priority_keywords + [k for k in keywords if k not in priority_keywords]
+        
+        return final_keywords[:7]  # Return top 7 keywords
     
     def _filter_keywords(self, keywords: List[str], job_data: Dict[str, Any]) -> List[str]:
         """Filter and rank keywords by relevance."""

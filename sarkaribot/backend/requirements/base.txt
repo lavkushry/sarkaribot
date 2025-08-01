@@ -20,8 +20,8 @@ beautifulsoup4==4.12.2
 lxml==4.9.3
 
 # NLP and SEO
-spacy==3.6.1
-nltk==3.8.1
+spacy>=3.7.0,<4.0.0
+nltk>=3.8.1
 
 # API Documentation
 drf-spectacular==0.26.4
