@@ -87,10 +87,15 @@ class NLPSEOEngine:
             ValueError: If required job data is missing
         """
         try:
-            if not job_data.get('title'):
-                raise ValueError("Job title is required for SEO metadata generation")
+            # Comprehensive input validation
+            if not job_data or not isinstance(job_data, dict):
+                raise ValueError("Job data must be a non-empty dictionary")
             
-            logger.info(f"Generating SEO metadata for job: {job_data['title']}")
+            title = job_data.get('title')
+            if not title or not isinstance(title, str) or not title.strip():
+                raise ValueError("Job title is required and must be a non-empty string")
+            
+            logger.info(f"Generating SEO metadata for job: {title}")
             
             # Extract keywords using spaCy NLP
             keywords = self._extract_keywords(job_data)
@@ -121,8 +126,13 @@ class NLPSEOEngine:
             logger.info(f"Generated SEO metadata with quality score: {metadata['quality_score']}")
             return metadata
             
+        except ValueError as e:
+            # Re-raise validation errors - these are non-recoverable
+            logger.error(f"SEO metadata generation failed due to invalid input: {e}")
+            raise e
         except Exception as e:
-            logger.error(f"Error generating SEO metadata: {e}")
+            # Handle recoverable errors (NLP processing issues) with fallback
+            logger.warning(f"SEO metadata generation encountered recoverable error, using fallback: {e}")
             return self._generate_fallback_metadata(job_data)
     
     def _extract_keywords(self, job_data: Dict[str, Any]) -> List[str]:
