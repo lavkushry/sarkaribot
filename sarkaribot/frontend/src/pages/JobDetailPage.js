@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import apiService from '../services/apiService';
+import { apiService } from '../services/api.ts';
 import './JobDetailPage.css';
 
 const JobDetailPage = () => {

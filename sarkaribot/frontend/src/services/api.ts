@@ -188,6 +188,11 @@ class ApiService {
     return this.getJobs(searchFilters);
   }
 
+  async getSimilarJobs(jobId: number, limit: number = 5): Promise<JobPosting[]> {
+    const response = await apiClient.get(`/jobs/${jobId}/similar/?page_size=${limit}`);
+    return response.data.results || response.data;
+  }
+
   // Category APIs
   async getCategories(): Promise<JobCategory[]> {
     const response = await apiClient.get('/categories/');

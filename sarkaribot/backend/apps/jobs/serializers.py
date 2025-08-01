@@ -82,22 +82,53 @@ class JobMilestoneSerializer(serializers.ModelSerializer):
 class JobPostingListSerializer(serializers.ModelSerializer):
     """Serializer for job posting list view (lightweight)."""
     
-    source_name = serializers.CharField(source='source.name', read_only=True)
-    category_name = serializers.CharField(source='category.name', read_only=True)
-    category_slug = serializers.CharField(source='category.slug', read_only=True)
+    # Nested objects to match frontend expectations
+    source = SerializerMethodField()
+    category = SerializerMethodField()
+    
+    # Computed fields
     days_remaining = SerializerMethodField()
     is_new = SerializerMethodField()
+    is_trending = SerializerMethodField()
     
     class Meta:
         model = JobPosting
         fields = [
-            'id', 'title', 'slug', 'status', 'source_name',
-            'category_name', 'category_slug', 'department',
-            'total_posts', 'qualification',
-            'notification_date', 'application_end_date',
-            'application_link', 'days_remaining', 'is_new',
-            'created_at', 'updated_at'
+            'id', 'title', 'slug', 'description', 'department',
+            'qualification', 'location', 'state', 'total_posts',
+            'min_age', 'max_age', 'application_fee',
+            'salary_min', 'salary_max', 'notification_date',
+            'application_end_date', 'exam_date', 'status',
+            'source', 'category', 'application_link',
+            'notification_pdf', 'keywords', 'seo_title',
+            'seo_description', 'created_at', 'updated_at',
+            'days_remaining', 'is_new', 'is_trending'
         ]
+    
+    def get_source(self, obj) -> dict:
+        """Return nested source object."""
+        if obj.source:
+            return {
+                'id': obj.source.id,
+                'name': obj.source.name,
+                'website_type': getattr(obj.source, 'website_type', 'government')
+            }
+        return {'id': None, 'name': '', 'website_type': ''}
+    
+    def get_category(self, obj) -> dict:
+        """Return nested category object."""
+        if obj.category:
+            return {
+                'id': obj.category.id,
+                'name': obj.category.name,
+                'slug': obj.category.slug
+            }
+        return {'id': None, 'name': '', 'slug': ''}
+    
+    def get_is_trending(self, obj) -> bool:
+        """Check if job is trending (placeholder implementation)."""
+        # For now, consider jobs with high view count or recent activity as trending
+        return obj.view_count > 100 or obj.is_featured
     
     def get_days_remaining(self, obj) -> int:
         """Calculate days remaining for application."""

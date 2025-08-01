@@ -148,6 +148,18 @@ class JobPosting(TimestampedModel):
         help_text="Educational qualification requirements"
     )
     
+    # Location Information
+    location = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Job location/posting location"
+    )
+    state = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="State where job is available"
+    )
+    
     # Important Dates
     notification_date = models.DateField(
         null=True,
