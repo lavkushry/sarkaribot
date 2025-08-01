@@ -6,12 +6,24 @@
 echo "🤖 SarkariBot Setup - Installing NLP Dependencies"
 echo "================================================"
 
+# Get the script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+BACKEND_DIR="$PROJECT_ROOT/sarkaribot/backend"
+
+echo "📁 Using backend directory: $BACKEND_DIR"
+
 # Navigate to backend directory
-cd /home/lavku/govt/sarkaribot/backend
+cd "$BACKEND_DIR"
 
 # Activate virtual environment
 echo "📦 Activating virtual environment..."
-source venv/bin/activate
+if [ -d "venv" ]; then
+    source venv/bin/activate
+else
+    echo "❌ Virtual environment not found. Please run setup_dev.sh first."
+    exit 1
+fi
 
 # Install/upgrade required Python packages
 echo "📥 Installing Python dependencies..."

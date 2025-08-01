@@ -6,12 +6,25 @@
 echo "🤖 SarkariBot Local Development Setup"
 echo "===================================="
 
+# Get the script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+BACKEND_DIR="$PROJECT_ROOT/sarkaribot/backend"
+
+echo "📁 Using backend directory: $BACKEND_DIR"
+
 # Navigate to backend directory
-cd /home/lavku/govt/sarkaribot/backend
+cd "$BACKEND_DIR"
 
 # Activate virtual environment
 echo "📦 Activating virtual environment..."
-source venv/bin/activate
+if [ -d "venv" ]; then
+    source venv/bin/activate
+else
+    echo "❌ Virtual environment not found. Creating one..."
+    python3 -m venv venv
+    source venv/bin/activate
+fi
 
 # Install core Django packages first (excluding PostgreSQL)
 echo "📥 Installing core Django packages..."
