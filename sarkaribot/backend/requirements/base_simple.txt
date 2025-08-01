@@ -1,0 +1,29 @@
+# Core Django Requirements (Python 3.12 compatible)
+Django==4.2.14
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+django-filter==23.2
+django-extensions==3.2.3
+
+# Database
+psycopg2-binary==2.9.7
+
+# Task Queue
+celery==5.3.1
+redis==4.6.0
+
+# API Documentation
+drf-spectacular==0.26.4
+
+# Utilities
+python-decouple==3.8
+pillow==10.0.0
+python-slugify==8.0.1
+
+# Development Tools
+ipython==8.15.0
+
+# Basic web scraping without complex dependencies
+requests==2.31.0
+beautifulsoup4==4.12.2
+lxml==4.9.3

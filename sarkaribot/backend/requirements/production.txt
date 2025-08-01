@@ -1,0 +1,7 @@
+-r base.txt
+
+# Production Server
+gunicorn==21.2.0
+
+# Production Utilities
+whitenoise==6.5.0

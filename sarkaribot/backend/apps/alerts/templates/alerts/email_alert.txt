@@ -1,0 +1,44 @@
+SarkariBot Job Alert: {{ alert.name }}
+=============================================
+
+{{ total_count }} New Job{{ total_count|pluralize }} Found!
+
+Alert Summary:
+{% if alert.keywords %}Keywords: {{ alert.keywords }}
+{% endif %}{% if alert.locations %}Locations: {{ alert.locations }}
+{% endif %}Frequency: {{ alert.get_frequency_display }}
+
+Latest Job Opportunities:
+-------------------------
+
+{% for job in jobs %}
+📋 {{ job.title }}
+   Source: {{ job.source.name }} | Category: {{ job.category.name }}
+   {% if job.total_posts %}Posts: {{ job.total_posts }} | {% endif %}{% if job.application_end_date %}Apply by: {{ job.application_end_date|date:"d M Y" }}{% endif %}
+   
+   {% if job.department %}Department: {{ job.department }}
+   {% endif %}{% if job.qualification %}Qualification: {{ job.qualification }}
+   {% endif %}{% if job.salary_min and job.salary_max %}Salary: ₹{{ job.salary_min|floatformat:0 }} - ₹{{ job.salary_max|floatformat:0 }}
+   {% endif %}
+   View Details: {{ frontend_url }}/jobs/{{ job.slug }}/
+   {% if job.application_link %}Apply Now: {{ job.application_link }}{% endif %}
+
+{% endfor %}
+
+{% if total_count > jobs|length %}
+View All {{ total_count }} Jobs: {{ frontend_url }}/jobs/?alert={{ alert.id }}
+{% endif %}
+
+Stay Updated!
+Visit SarkariBot.com for the latest government job opportunities.
+
+Manage Your Alerts: {{ frontend_url }}/alerts/
+View Bookmarks: {{ frontend_url }}/bookmarks/
+Update Profile: {{ frontend_url }}/profile/
+
+This email was sent because you have an active job alert.
+Unsubscribe from this alert: {{ unsubscribe_url }}
+Manage Email Preferences: {{ frontend_url }}/preferences/
+
+SarkariBot - Making Government Jobs Accessible
+© 2024 SarkariBot. All rights reserved.

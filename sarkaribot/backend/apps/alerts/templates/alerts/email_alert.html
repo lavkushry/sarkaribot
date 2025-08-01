@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SarkariBot Job Alert: {{ alert.name }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2196F3;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2196F3;
+            margin-bottom: 10px;
+        }
+        .alert-name {
+            font-size: 20px;
+            color: #666;
+            margin: 10px 0;
+        }
+        .jobs-count {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 15px 0;
+        }
+        .job-item {
+            border-left: 4px solid #2196F3;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 0 5px 5px 0;
+        }
+        .job-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .job-meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .job-meta span {
+            margin-right: 15px;
+        }
+        .badge {
+            background-color: #E3F2FD;
+            color: #1976D2;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #2196F3;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px 5px;
+        }
+        .cta-button:hover {
+            background-color: #1976D2;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+        }
+        .unsubscribe {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #999;
+        }
+        .unsubscribe a {
+            color: #999;
+        }
+        .stats {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🏛️ SarkariBot</div>
+            <div class="alert-name">{{ alert.name }}</div>
+            <div class="jobs-count">{{ total_count }} New Job{{ total_count|pluralize }} Found!</div>
+        </div>
+
+        <div class="stats">
+            <strong>Alert Summary:</strong><br>
+            {% if alert.keywords %}
+            Keywords: <em>{{ alert.keywords }}</em><br>
+            {% endif %}
+            {% if alert.locations %}
+            Locations: <em>{{ alert.locations }}</em><br>
+            {% endif %}
+            Frequency: <em>{{ alert.get_frequency_display }}</em>
+        </div>
+
+        <h2>📋 Latest Job Opportunities</h2>
+
+        {% for job in jobs %}
+        <div class="job-item">
+            <div class="job-title">{{ job.title }}</div>
+            <div class="job-meta">
+                <span class="badge">{{ job.source.name }}</span>
+                <span class="badge">{{ job.category.name }}</span>
+                {% if job.total_posts %}
+                <span>🎯 {{ job.total_posts }} Posts</span>
+                {% endif %}
+                {% if job.application_end_date %}
+                <span>📅 Apply by: {{ job.application_end_date|date:"d M Y" }}</span>
+                {% endif %}
+            </div>
+            {% if job.department %}
+            <div style="margin-bottom: 10px;"><strong>Department:</strong> {{ job.department }}</div>
+            {% endif %}
+            {% if job.qualification %}
+            <div style="margin-bottom: 10px;"><strong>Qualification:</strong> {{ job.qualification }}</div>
+            {% endif %}
+            {% if job.salary_min and job.salary_max %}
+            <div style="margin-bottom: 10px;"><strong>Salary:</strong> ₹{{ job.salary_min|floatformat:0 }} - ₹{{ job.salary_max|floatformat:0 }}</div>
+            {% endif %}
+            
+            <div style="margin-top: 15px;">
+                <a href="{{ frontend_url }}/jobs/{{ job.slug }}/" class="cta-button">View Details</a>
+                {% if job.application_link %}
+                <a href="{{ job.application_link }}" class="cta-button" style="background-color: #4CAF50;">Apply Now</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if total_count > jobs|length %}
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ frontend_url }}/jobs/?alert={{ alert.id }}" class="cta-button">
+                View All {{ total_count }} Jobs
+            </a>
+        </div>
+        {% endif %}
+
+        <div class="footer">
+            <p>
+                <strong>Stay Updated!</strong><br>
+                Visit <a href="{{ frontend_url }}">SarkariBot.com</a> for the latest government job opportunities.
+            </p>
+            
+            <p>
+                <a href="{{ frontend_url }}/alerts/">Manage Your Alerts</a> |
+                <a href="{{ frontend_url }}/bookmarks/">View Bookmarks</a> |
+                <a href="{{ frontend_url }}/profile/">Update Profile</a>
+            </p>
+
+            <div class="unsubscribe">
+                <p>
+                    This email was sent because you have an active job alert.<br>
+                    <a href="{{ unsubscribe_url }}">Unsubscribe from this alert</a> |
+                    <a href="{{ frontend_url }}/preferences/">Manage Email Preferences</a>
+                </p>
+                <p>
+                    SarkariBot - Making Government Jobs Accessible<br>
+                    © 2024 SarkariBot. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

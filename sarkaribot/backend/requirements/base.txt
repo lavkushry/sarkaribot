@@ -1,0 +1,38 @@
+# Core Django Requirements
+Django==4.2.14
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+django-filter==23.2
+django-extensions==3.2.3
+
+# Database
+psycopg2-binary==2.9.7
+
+# Task Queue
+celery==5.3.1
+redis==4.6.0
+
+# Web Scraping
+scrapy==2.11.0
+playwright==1.37.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
+# NLP and SEO
+spacy==3.6.1
+nltk==3.8.1
+
+# API Documentation
+drf-spectacular==0.26.4
+
+# Utilities
+python-decouple==3.8
+pillow==10.0.0
+python-slugify==8.0.1
+
+# Monitoring and Logging
+sentry-sdk==1.32.0
+
+# Development Tools
+ipython==8.15.0

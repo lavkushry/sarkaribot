@@ -1,0 +1,132 @@
+name: 🐛 Bug Report
+description: Create a report to help us improve SarkariBot
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below with as much detail as possible.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the bug...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+      placeholder: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: A clear and concise description of what actually happened.
+      placeholder: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain your problem.
+      placeholder: Drag and drop images here or paste them
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component is affected?
+      options:
+        - Frontend (React)
+        - Backend (Django API)
+        - Scraping Engine
+        - Database
+        - SEO System
+        - Authentication
+        - Deployment
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      placeholder: e.g. Ubuntu 20.04, Windows 10, macOS 12.0
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser (if frontend issue)
+      description: What browser are you using?
+      placeholder: e.g. Chrome 96.0, Firefox 95.0, Safari 15.0
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version (if backend issue)
+      description: What Python version are you using?
+      placeholder: e.g. Python 3.12.0
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js Version (if frontend issue)
+      description: What Node.js version are you using?
+      placeholder: e.g. Node.js 18.17.0
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs
+      description: Please copy and paste any relevant error logs or stack traces.
+      placeholder: Paste error logs here...
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here.
+      placeholder: Any additional information that might be helpful...
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched for existing issues before creating this report
+          required: true
+        - label: I have provided all the requested information above
+          required: true
+        - label: This is not a security vulnerability (use security@sarkaribot.com for those)
+          required: true

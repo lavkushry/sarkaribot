@@ -1,0 +1,120 @@
+name: ✨ Feature Request
+description: Suggest a new feature or improvement for SarkariBot
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! Please provide as much detail as possible.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: Is your feature request related to a problem? Please describe.
+      placeholder: A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see implemented.
+      placeholder: A clear and concise description of what you want to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you've considered.
+      placeholder: A clear and concise description of any alternative solutions or features you've considered.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component would this feature affect?
+      options:
+        - Frontend (React)
+        - Backend (Django API)
+        - Scraping Engine
+        - Database
+        - SEO System
+        - Authentication
+        - Deployment
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Low (Nice to have)
+        - Medium (Would be helpful)
+        - High (Important for my use case)
+        - Critical (Blocking my usage)
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Describe your specific use case for this feature.
+      placeholder: How would you use this feature? What would it enable you to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Ideas
+      description: Do you have any ideas on how this could be implemented?
+      placeholder: Technical details, API changes, UI mockups, etc.
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples
+      description: Provide examples, mockups, or references to similar features.
+      placeholder: Screenshots, links to similar features in other applications, etc.
+
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Impact Assessment
+      description: Who would benefit from this feature?
+      options:
+        - label: End users (job seekers)
+        - label: Administrators
+        - label: Developers
+        - label: Government sources
+        - label: SEO/Marketing
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples about the feature request.
+      placeholder: Any additional information that might be helpful...
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched for existing feature requests before creating this one
+          required: true
+        - label: This feature request is not covered by existing functionality
+          required: true
+        - label: I would be willing to help implement this feature
+          required: false

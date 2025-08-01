@@ -1,0 +1,96 @@
+name: 📚 Documentation Issue
+description: Report issues with documentation or suggest improvements
+title: "[Docs]: "
+labels: ["documentation", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us improve our documentation! Please describe what's missing, incorrect, or could be better.
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation issue is this?
+      options:
+        - API Documentation
+        - Installation Guide
+        - User Guide
+        - Developer Guide
+        - Architecture Documentation
+        - Code Comments
+        - README
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Where is the documentation located?
+      placeholder: e.g. docs/API.md, README.md, https://github.com/user/repo/blob/main/docs/guide.md
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue Type
+      description: What kind of issue is this?
+      options:
+        - Missing documentation
+        - Incorrect information
+        - Outdated information
+        - Unclear/confusing content
+        - Typo/grammar error
+        - Broken links
+        - Missing examples
+        - Improvement suggestion
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: Describe the documentation issue in detail.
+      placeholder: What's wrong with the current documentation? What information is missing or incorrect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Content
+      description: What should the documentation say or include?
+      placeholder: Describe what the documentation should contain or how it should be improved.
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Fix
+      description: If you have a suggestion for how to fix this, please describe it.
+      placeholder: How would you improve or fix this documentation?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the documentation issue.
+      placeholder: Screenshots, links to related documentation, etc.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched for existing documentation issues before creating this one
+          required: true
+        - label: I have checked that this documentation exists and is publicly accessible
+          required: true
+        - label: I would be willing to help improve this documentation
+          required: false
