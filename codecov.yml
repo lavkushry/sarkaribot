@@ -1,0 +1,67 @@
+# Coverage configuration for Codecov
+# https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+
+  status:
+    project:
+      default:
+        target: 85%
+        threshold: 1%
+        if_ci_failed: error
+    
+    patch:
+      default:
+        target: 80%
+        threshold: 2%
+        if_ci_failed: error
+
+    changes:
+      default:
+        target: auto
+        threshold: 1%
+        if_ci_failed: error
+
+  ignore:
+    - "sarkaribot/backend/config/settings/*.py"
+    - "sarkaribot/backend/manage.py"
+    - "sarkaribot/backend/*/migrations/*.py"
+    - "sarkaribot/backend/tests/*.py"
+    - "sarkaribot/backend/*/admin.py"
+    - "sarkaribot/frontend/src/index.js"
+    - "sarkaribot/frontend/src/serviceWorker.js"
+    - "sarkaribot/frontend/src/test-utils.js"
+    - "sarkaribot/frontend/src/**/*.test.js"
+    - "sarkaribot/frontend/public/*"
+
+flags:
+  backend:
+    paths:
+      - sarkaribot/backend/apps/
+    carryforward: true
+    
+  frontend:
+    paths:
+      - sarkaribot/frontend/src/
+    carryforward: true
+
+  critical:
+    paths:
+      - sarkaribot/backend/apps/jobs/
+      - sarkaribot/backend/apps/scraping/
+      - sarkaribot/backend/apps/sources/
+      - sarkaribot/backend/apps/seo/
+    carryforward: true
+
+comment:
+  layout: "reach,diff,flags,tree,files"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+
+github_checks:
+  annotations: true
