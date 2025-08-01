@@ -64,6 +64,16 @@ class JobCategory(TimestampedModel):
         if not self.slug:
             self.slug = generate_unique_slug(self.name, JobCategory)
         super().save(*args, **kwargs)
+    
+    def get_absolute_url(self) -> str:
+        """
+        Get the canonical URL for this category.
+        
+        Returns the SEO-optimized URL following the Knowledge.md specification:
+        /{category}/
+        """
+        from django.urls import reverse
+        return reverse('jobs_seo:category-list', kwargs={'category_slug': self.slug})
 
 
 class JobPosting(TimestampedModel):
@@ -347,6 +357,27 @@ class JobPosting(TimestampedModel):
     def is_urgent(self) -> bool:
         """Check if this job posting is urgent (deadline approaching)."""
         return self.days_remaining <= 7 and self.days_remaining > 0
+    
+    def get_absolute_url(self) -> str:
+        """
+        Get the canonical URL for this job posting.
+        
+        Returns the SEO-optimized URL following the Knowledge.md specification:
+        /{category}/{job-slug}/
+        """
+        from django.urls import reverse
+        return reverse('jobs_seo:job-detail', kwargs={
+            'category_slug': self.category.slug,
+            'job_slug': self.slug
+        })
+    
+    def get_canonical_url(self) -> str:
+        """
+        Get the canonical URL for SEO purposes.
+        
+        This is an alias for get_absolute_url() for clarity.
+        """
+        return self.get_absolute_url()
     
     def increment_view_count(self):
         """Increment the view count for this job posting."""
