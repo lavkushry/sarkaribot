@@ -47,10 +47,10 @@ LOCAL_APPS = [
     'apps.jobs',
     'apps.scraping',
     'apps.seo',
+    'apps.monitoring',  # Enable monitoring app
     # Stage 4 Advanced Features (temporarily commented until properly configured)
     # 'apps.analytics',
     # 'apps.ai_search',
-    # 'apps.monitoring',
     # 'apps.alerts',
 ]
 
@@ -59,12 +59,16 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'apps.monitoring.middleware.SecurityHeadersMiddleware',
+    'apps.monitoring.middleware.HealthCheckMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.monitoring.middleware.RequestTrackingMiddleware',
+    'apps.monitoring.middleware.RateLimitMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -292,3 +296,54 @@ SEO_KEYWORDS_MAX_COUNT = 7
 
 # Government Source Configuration
 GOVERNMENT_SOURCES_CONFIG_PATH = BASE_DIR / 'config' / 'government_sources.json'
+
+# Sentry Configuration for Error Tracking
+SENTRY_DSN = config('SENTRY_DSN', default='')
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+    
+    sentry_logging = LoggingIntegration(
+        level=logging.INFO,        # Capture info and above as breadcrumbs
+        event_level=logging.ERROR  # Send errors as events
+    )
+    
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+            sentry_logging,
+        ],
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # We recommend adjusting this value in production.
+        traces_sample_rate=config('SENTRY_TRACES_SAMPLE_RATE', default=0.1, cast=float),
+        
+        # Send user feedback to Sentry
+        send_default_pii=True,
+        
+        # Environment
+        environment=config('ENVIRONMENT', default='development'),
+        
+        # Release tracking
+        release=config('RELEASE_VERSION', default='1.0.0'),
+        
+        # Error filtering
+        before_send=lambda event, hint: event if not DEBUG else None,
+    )
+
+# Monitoring Configuration
+MONITORING_ENABLED = config('MONITORING_ENABLED', default=True, cast=bool)
+MONITORING_PERFORMANCE_THRESHOLD = config('MONITORING_PERFORMANCE_THRESHOLD', default=1000, cast=int)  # ms
+MONITORING_ERROR_RETENTION_DAYS = config('MONITORING_ERROR_RETENTION_DAYS', default=30, cast=int)
+
+# Performance Monitoring
+PERFORMANCE_MONITORING = {
+    'ENABLE_DB_TRACKING': True,
+    'ENABLE_CACHE_TRACKING': True,
+    'SLOW_QUERY_THRESHOLD': 100,  # ms
+    'SLOW_REQUEST_THRESHOLD': 1000,  # ms
+}

@@ -1,23 +1,97 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
+import FeedbackModal from './components/FeedbackModal';
+import monitor from './services/monitoring';
+import './styles/monitoring.css';
+
+// Initialize monitoring when the app starts
+if (process.env.NODE_ENV === 'production') {
+  monitor.init({
+    apiEndpoint: '/api/v1/monitoring',
+    enablePerformanceTracking: true,
+    enableErrorTracking: true,
+    enableUserTracking: true,
+    sampleRate: 0.1, // 10% sampling for performance
+  });
+} else {
+  // In development, enable all monitoring but don't send to production endpoints
+  monitor.init({
+    apiEndpoint: '/api/v1/monitoring',
+    enablePerformanceTracking: true,
+    enableErrorTracking: true,
+    enableUserTracking: true,
+    sampleRate: 1.0, // 100% sampling in development
+  });
+}
 
 // API Service Layer - Integrates with working backend endpoints
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api/v1';
 
 const api = {
-  getStats: () => fetch(`${API_BASE}/stats/`).then(res => res.json()),
+  async makeRequest(url, options = {}) {
+    try {
+      const response = await fetch(url, options);
+      
+      // Track API performance
+      if (window.monitor && response.ok) {
+        const responseTime = response.headers.get('X-Response-Time');
+        if (responseTime) {
+          monitor.trackPerformance('api_response_time', {
+            value: parseFloat(responseTime),
+            unit: 'ms',
+            endpoint: url
+          });
+        }
+      }
+      
+      if (!response.ok) {
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+        error.status = response.status;
+        error.endpoint = url;
+        
+        // Track API errors
+        if (window.monitor) {
+          monitor.logError({
+            type: 'api_error',
+            message: `API Error: ${response.status} ${response.statusText}`,
+            endpoint: url,
+            status: response.status,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        throw error;
+      }
+      
+      return response.json();
+    } catch (error) {
+      // Track network errors
+      if (window.monitor && error.name === 'TypeError') {
+        monitor.logError({
+          type: 'network_error',
+          message: `Network Error: ${error.message}`,
+          endpoint: url,
+          timestamp: new Date().toISOString()
+        });
+      }
+      throw error;
+    }
+  },
+
+  getStats: () => api.makeRequest(`${API_BASE}/stats/`),
   getJobs: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
-    return fetch(`${API_BASE}/jobs/?${queryString}`).then(res => res.json());
+    return api.makeRequest(`${API_BASE}/jobs/?${queryString}`);
   },
-  getJobsByStatus: (status) => fetch(`${API_BASE}/jobs/?status=${status}`).then(res => res.json()),
-  getCategories: () => fetch(`${API_BASE}/categories/`).then(res => res.json()),
-  getRecentJobs: () => fetch(`${API_BASE}/jobs/recent/`).then(res => res.json()),
-  getTrendingJobs: () => fetch(`${API_BASE}/jobs/trending/`).then(res => res.json()),
-  getFeaturedJobs: () => fetch(`${API_BASE}/jobs/featured/`).then(res => res.json()),
-  searchJobs: (query) => fetch(`${API_BASE}/search/?q=${encodeURIComponent(query)}`).then(res => res.json()),
-  getSources: () => fetch(`${API_BASE}/sources/`).then(res => res.json()),
-  getHealth: () => fetch(`${API_BASE}/health/`).then(res => res.json()),
+  getJobsByStatus: (status) => api.makeRequest(`${API_BASE}/jobs/?status=${status}`),
+  getCategories: () => api.makeRequest(`${API_BASE}/categories/`),
+  getRecentJobs: () => api.makeRequest(`${API_BASE}/jobs/recent/`),
+  getTrendingJobs: () => api.makeRequest(`${API_BASE}/jobs/trending/`),
+  getFeaturedJobs: () => api.makeRequest(`${API_BASE}/jobs/featured/`),
+  searchJobs: (query) => api.makeRequest(`${API_BASE}/search/?q=${encodeURIComponent(query)}`),
+  getSources: () => api.makeRequest(`${API_BASE}/sources/`),
+  getHealth: () => api.makeRequest(`${API_BASE}/monitoring/health/`),
 };
 
 // Utility Components
@@ -35,19 +109,38 @@ const LoadingSpinner = ({ size = 'medium' }) => {
   );
 };
 
-const ErrorMessage = ({ message, onRetry }) => (
-  <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-    <p className="text-red-700 mb-2">{message}</p>
-    {onRetry && (
-      <button 
-        onClick={onRetry}
-        className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
-      >
-        Try Again
-      </button>
-    )}
-  </div>
-);
+// Enhanced Error Message Component with Feedback Option
+const ErrorMessage = ({ message, onRetry, errorInfo = null }) => {
+  const [showFeedback, setShowFeedback] = useState(false);
+
+  return (
+    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+      <p className="text-red-700 mb-2">{message}</p>
+      <div className="flex gap-2 justify-center">
+        {onRetry && (
+          <button 
+            onClick={onRetry}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+          >
+            Try Again
+          </button>
+        )}
+        <button 
+          onClick={() => setShowFeedback(true)}
+          className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors"
+        >
+          Report Issue
+        </button>
+      </div>
+      
+      <FeedbackModal 
+        isOpen={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        errorInfo={errorInfo}
+      />
+    </div>
+  );
+};
 
 // Header Component - SarkariExam.com inspired design
 const Header = () => {
@@ -617,85 +710,127 @@ const JobDetailPage = () => {
   );
 };
 
-// Main App Component
+// Main App Component with Error Boundary
 export default function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        
-        <main className="container mx-auto px-4 py-8">
-          <Routes>
-            {/* Home Page */}
-            <Route path="/" element={
-              <>
-                <DashboardStats />
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                  <div className="lg:col-span-3">
-                    <CategoryFilter 
-                      selectedCategory={null}
-                      onCategoryChange={() => {}}
-                    />
+    <ErrorBoundary name="App">
+      <Router>
+        <div className="min-h-screen bg-gray-50">
+          <ErrorBoundary name="Header">
+            <Header />
+          </ErrorBoundary>
+          
+          <main className="container mx-auto px-4 py-8">
+            <ErrorBoundary name="MainContent">
+              <Routes>
+                {/* Home Page */}
+                <Route path="/" element={
+                  <>
+                    <ErrorBoundary name="DashboardStats">
+                      <DashboardStats />
+                    </ErrorBoundary>
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                      <div className="lg:col-span-3">
+                        <ErrorBoundary name="CategoryFilter">
+                          <CategoryFilter 
+                            selectedCategory={null}
+                            onCategoryChange={() => {}}
+                          />
+                        </ErrorBoundary>
+                        <ErrorBoundary name="JobsList">
+                          <JobsList 
+                            title="🆕 Latest Government Jobs"
+                            showStats={true}
+                          />
+                        </ErrorBoundary>
+                      </div>
+                      <aside className="lg:col-span-1">
+                        <ErrorBoundary name="TrendingJobs">
+                          <TrendingJobs />
+                        </ErrorBoundary>
+                        <ErrorBoundary name="QuickLinks">
+                          <QuickLinks />
+                        </ErrorBoundary>
+                      </aside>
+                    </div>
+                  </>
+                } />
+                
+                {/* Category Pages - Using working API endpoints */}
+                <Route path="/latest-jobs" element={
+                  <ErrorBoundary name="LatestJobs">
                     <JobsList 
-                      title="🆕 Latest Government Jobs"
+                      title="📋 Latest Jobs" 
+                      filters={{ status: 'announced' }}
                       showStats={true}
                     />
-                  </div>
-                  <aside className="lg:col-span-1">
-                    <TrendingJobs />
-                    <QuickLinks />
-                  </aside>
-                </div>
-              </>
-            } />
-            
-            {/* Category Pages - Using working API endpoints */}
-            <Route path="/latest-jobs" element={
-              <JobsList 
-                title="📋 Latest Jobs" 
-                filters={{ status: 'announced' }}
-                showStats={true}
-              />
-            } />
-            
-            <Route path="/admit-card" element={
-              <JobsList 
-                title="🎫 Admit Card Notifications" 
-                filters={{ status: 'admit_card' }}
-                showStats={true}
-              />
-            } />
-            
-            <Route path="/answer-key" element={
-              <JobsList 
-                title="🔑 Answer Key Notifications" 
-                filters={{ status: 'answer_key' }}
-                showStats={true}
-              />
-            } />
-            
-            <Route path="/result" element={
-              <JobsList 
-                title="🏆 Result Notifications" 
-                filters={{ status: 'result' }}
-                showStats={true}
-              />
-            } />
+                  </ErrorBoundary>
+                } />
+                
+                <Route path="/admit-card" element={
+                  <ErrorBoundary name="AdmitCard">
+                    <JobsList 
+                      title="🎫 Admit Card Notifications" 
+                      filters={{ status: 'admit_card' }}
+                      showStats={true}
+                    />
+                  </ErrorBoundary>
+                } />
+                
+                <Route path="/answer-key" element={
+                  <ErrorBoundary name="AnswerKey">
+                    <JobsList 
+                      title="🔑 Answer Key Notifications" 
+                      filters={{ status: 'answer_key' }}
+                      showStats={true}
+                    />
+                  </ErrorBoundary>
+                } />
+                
+                <Route path="/result" element={
+                  <ErrorBoundary name="Result">
+                    <JobsList 
+                      title="🏆 Result Notifications" 
+                      filters={{ status: 'result' }}
+                      showStats={true}
+                    />
+                  </ErrorBoundary>
+                } />
 
-            {/* Search Results */}
-            <Route path="/search" element={<SearchResults />} />
-            
-            {/* Categories */}
-            <Route path="/categories" element={<CategoriesPage />} />
-            <Route path="/category/:slug" element={<CategoryPage />} />
-            
-            {/* Job Detail */}
-            <Route path="/job/:slug" element={<JobDetailPage />} />
-          </Routes>
-        </main>
-        
-        <Footer />
-      </div>
-    </Router>
+                {/* Search Results */}
+                <Route path="/search" element={
+                  <ErrorBoundary name="SearchResults">
+                    <SearchResults />
+                  </ErrorBoundary>
+                } />
+                
+                {/* Categories */}
+                <Route path="/categories" element={
+                  <ErrorBoundary name="CategoriesPage">
+                    <CategoriesPage />
+                  </ErrorBoundary>
+                } />
+                <Route path="/category/:slug" element={
+                  <ErrorBoundary name="CategoryPage">
+                    <CategoryPage />
+                  </ErrorBoundary>
+                } />
+                
+                {/* Job Detail */}
+                <Route path="/job/:slug" element={
+                  <ErrorBoundary name="JobDetailPage">
+                    <JobDetailPage />
+                  </ErrorBoundary>
+                } />
+              </Routes>
+            </ErrorBoundary>
+          </main>
+          
+          <ErrorBoundary name="Footer">
+            <Footer />
+          </ErrorBoundary>
+        </div>
+      </Router>
+    </ErrorBoundary>
   );
 }

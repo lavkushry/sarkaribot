@@ -36,6 +36,23 @@ app.conf.beat_schedule = {
         'task': 'apps.core.tasks.health_check',
         'schedule': 900.0,  # Every 15 minutes
     },
+    # Monitoring tasks
+    'system-health-check': {
+        'task': 'apps.monitoring.tasks.system_health_check',
+        'schedule': 300.0,  # Every 5 minutes
+    },
+    'cleanup-monitoring-data': {
+        'task': 'apps.monitoring.tasks.cleanup_old_monitoring_data',
+        'schedule': 86400.0,  # Daily at midnight
+    },
+    'generate-monitoring-report': {
+        'task': 'apps.monitoring.tasks.generate_monitoring_report',
+        'schedule': 86400.0,  # Daily
+    },
+    'check-critical-errors': {
+        'task': 'apps.monitoring.tasks.alert_on_critical_errors',
+        'schedule': 300.0,  # Every 5 minutes
+    },
 }
 
 app.conf.timezone = 'Asia/Kolkata'
