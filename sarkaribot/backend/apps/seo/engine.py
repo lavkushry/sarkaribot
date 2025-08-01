@@ -273,33 +273,357 @@ class NLPSEOEngine:
         return seo_description
     
     def _generate_job_schema(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate schema.org JobPosting structured data."""
-        return {
+        """
+        Generate comprehensive schema.org JobPosting structured data.
+        
+        Implements full JobPosting schema according to schema.org specifications
+        for optimal search engine visibility and rich results.
+        
+        Args:
+            job_data: Dictionary containing job information
+            
+        Returns:
+            Complete schema.org JobPosting structured data
+        """
+        # Base schema structure
+        schema = {
             "@context": "https://schema.org/",
             "@type": "JobPosting",
+            "headline": job_data.get('title', ''),
             "title": job_data.get('title', ''),
-            "description": job_data.get('description', job_data.get('title', '')),
+            "description": self._clean_html_for_schema(job_data.get('description', job_data.get('title', ''))),
             "datePosted": job_data.get('posted_date', datetime.now().isoformat()),
-            "employmentType": "FULL_TIME",
-            "hiringOrganization": {
-                "@type": "Organization",
-                "name": job_data.get('department', 'Government of India')
-            },
-            "jobLocation": {
-                "@type": "Place",
-                "address": {
-                    "@type": "PostalAddress",
-                    "addressLocality": job_data.get('location', 'India'),
-                    "addressCountry": "IN"
-                }
-            },
-            "qualifications": job_data.get('qualification', ''),
-            "validThrough": job_data.get('last_date', '')
+            "employmentType": ["FULL_TIME", "PERMANENT"],
+            "jobLocationType": "LOCATION_TYPE_UNSPECIFIED",
+            "industry": "Government",
+            "occupationalCategory": "Government Jobs",
         }
+        
+        # Hiring Organization (Enhanced)
+        organization_name = job_data.get('department') or job_data.get('source_name', 'Government of India')
+        schema["hiringOrganization"] = {
+            "@type": "GovernmentOrganization",
+            "name": organization_name,
+            "url": job_data.get('source_url', ''),
+            "logo": job_data.get('organization_logo', ''),
+            "description": f"{organization_name} - Government of India",
+            "address": {
+                "@type": "PostalAddress",
+                "addressCountry": "IN",
+                "addressLocality": "India"
+            }
+        }
+        
+        # Job Location (Enhanced)
+        schema["jobLocation"] = {
+            "@type": "Place",
+            "address": {
+                "@type": "PostalAddress",
+                "addressLocality": job_data.get('location', 'India'),
+                "addressRegion": job_data.get('state', ''),
+                "addressCountry": "IN"
+            }
+        }
+        
+        # Base Salary (if available)
+        if job_data.get('salary_min') or job_data.get('salary_max'):
+            salary_data = {
+                "@type": "MonetaryAmount",
+                "currency": "INR"
+            }
+            
+            if job_data.get('salary_min') and job_data.get('salary_max'):
+                salary_data["value"] = {
+                    "@type": "QuantitativeValue",
+                    "minValue": job_data.get('salary_min'),
+                    "maxValue": job_data.get('salary_max'),
+                    "unitText": "MONTH"
+                }
+            elif job_data.get('salary_min'):
+                salary_data["value"] = {
+                    "@type": "QuantitativeValue",
+                    "minValue": job_data.get('salary_min'),
+                    "unitText": "MONTH"
+                }
+            elif job_data.get('salary_max'):
+                salary_data["value"] = {
+                    "@type": "QuantitativeValue",
+                    "maxValue": job_data.get('salary_max'),
+                    "unitText": "MONTH"
+                }
+            
+            schema["baseSalary"] = salary_data
+        
+        # Education Requirements
+        if job_data.get('qualification'):
+            schema["educationRequirements"] = {
+                "@type": "EducationalOccupationalCredential",
+                "credentialCategory": "degree",
+                "educationalLevel": job_data.get('qualification', '')
+            }
+        
+        # Experience Requirements
+        if job_data.get('experience'):
+            schema["experienceRequirements"] = {
+                "@type": "OccupationalExperienceRequirements",
+                "monthsOfExperience": job_data.get('experience_months', 0)
+            }
+        
+        # Application Instructions
+        application_instructions = []
+        if job_data.get('application_link'):
+            application_instructions.append(f"Apply online at: {job_data.get('application_link')}")
+        if job_data.get('application_fee'):
+            application_instructions.append(f"Application fee: ₹{job_data.get('application_fee')}")
+        
+        if application_instructions:
+            schema["applicationContact"] = {
+                "@type": "ContactPoint",
+                "description": " | ".join(application_instructions)
+            }
+        
+        # Important Dates
+        if job_data.get('last_date'):
+            schema["validThrough"] = job_data.get('last_date')
+        
+        if job_data.get('application_start_date'):
+            schema["applicationDeadline"] = job_data.get('last_date', '')
+        
+        # Job Benefits
+        benefits = []
+        if job_data.get('total_posts'):
+            benefits.append(f"{job_data.get('total_posts')} positions available")
+        
+        if benefits:
+            schema["jobBenefits"] = benefits
+        
+        # Qualifications summary
+        qualifications = []
+        if job_data.get('min_age') or job_data.get('max_age'):
+            age_req = "Age: "
+            if job_data.get('min_age'):
+                age_req += f"{job_data.get('min_age')} years minimum"
+            if job_data.get('max_age'):
+                if job_data.get('min_age'):
+                    age_req += f" to {job_data.get('max_age')} years maximum"
+                else:
+                    age_req += f"{job_data.get('max_age')} years maximum"
+            qualifications.append(age_req)
+        
+        if job_data.get('qualification'):
+            qualifications.append(f"Education: {job_data.get('qualification')}")
+        
+        if qualifications:
+            schema["qualifications"] = " | ".join(qualifications)
+        
+        # Additional metadata
+        schema["identifier"] = {
+            "@type": "PropertyValue",
+            "name": "Job ID",
+            "value": str(job_data.get('id', ''))
+        }
+        
+        # Keywords for better SEO
+        if job_data.get('keywords'):
+            schema["keywords"] = job_data.get('keywords')
+        
+        # Special requirements for government jobs
+        schema["specialCommitments"] = ["Government Service", "Public Sector"]
+        
+        # URL and identifier
+        if job_data.get('slug'):
+            schema["url"] = f"/jobs/{job_data.get('slug')}/"
+        
+        return schema
     
-    def _generate_slug(self, title: str) -> str:
-        """Generate URL-friendly slug."""
-        return slugify(title)
+    def _clean_html_for_schema(self, text: str) -> str:
+        """Clean HTML content for use in structured data."""
+        if not text:
+            return ""
+        
+        # Remove HTML tags and decode entities
+        import re
+        from html import unescape
+        
+        # Remove HTML tags
+        clean_text = re.sub(r'<[^>]+>', ' ', text)
+        # Decode HTML entities
+        clean_text = unescape(clean_text)
+        # Normalize whitespace
+        clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+        
+        return clean_text[:500]  # Limit length for schema
+
+    def generate_open_graph_metadata(self, job_data: Dict[str, Any], request_url: str = "") -> Dict[str, Any]:
+        """
+        Generate OpenGraph metadata for social media sharing.
+        
+        Args:
+            job_data: Dictionary containing job information
+            request_url: Full URL of the job page
+            
+        Returns:
+            Dictionary with OpenGraph meta tags
+        """
+        try:
+            title = job_data.get('title', '')
+            description = self._clean_html_for_schema(job_data.get('description', ''))
+            
+            # Generate OG title (95 chars max)
+            og_title = title
+            if len(og_title) > 95:
+                og_title = og_title[:92] + "..."
+            
+            # Generate OG description (300 chars max)
+            og_description = description
+            if not og_description:
+                og_description = f"Apply for {title}. Check eligibility, notification details and apply online."
+            
+            if len(og_description) > 300:
+                og_description = og_description[:297] + "..."
+            
+            # Generate OG image URL (placeholder for now)
+            og_image = job_data.get('image_url', '/static/images/sarkaribot-job-default.jpg')
+            
+            og_metadata = {
+                'og:type': 'article',
+                'og:title': og_title,
+                'og:description': og_description,
+                'og:image': og_image,
+                'og:url': request_url,
+                'og:site_name': 'SarkariBot - Government Jobs Portal',
+                'og:locale': 'en_IN',
+                'article:author': job_data.get('department', 'Government of India'),
+                'article:published_time': job_data.get('posted_date', datetime.now().isoformat()),
+                'article:section': job_data.get('category', 'Government Jobs'),
+                'article:tag': job_data.get('keywords', ''),
+            }
+            
+            # Add job-specific OG tags
+            if job_data.get('total_posts'):
+                og_metadata['job:posts_available'] = str(job_data.get('total_posts'))
+            
+            if job_data.get('last_date'):
+                og_metadata['job:application_deadline'] = job_data.get('last_date')
+            
+            if job_data.get('salary_min') or job_data.get('salary_max'):
+                salary_range = []
+                if job_data.get('salary_min'):
+                    salary_range.append(f"₹{job_data.get('salary_min'):,}")
+                if job_data.get('salary_max'):
+                    salary_range.append(f"₹{job_data.get('salary_max'):,}")
+                og_metadata['job:salary'] = " - ".join(salary_range)
+            
+            return og_metadata
+            
+        except Exception as e:
+            logger.error(f"Error generating OpenGraph metadata: {e}")
+            return self._generate_fallback_og_metadata(job_data)
+
+    def generate_twitter_card_metadata(self, job_data: Dict[str, Any], request_url: str = "") -> Dict[str, Any]:
+        """
+        Generate Twitter Card metadata for enhanced Twitter sharing.
+        
+        Args:
+            job_data: Dictionary containing job information
+            request_url: Full URL of the job page
+            
+        Returns:
+            Dictionary with Twitter Card meta tags
+        """
+        try:
+            title = job_data.get('title', '')
+            description = self._clean_html_for_schema(job_data.get('description', ''))
+            
+            # Generate Twitter title (70 chars max)
+            twitter_title = title
+            if len(twitter_title) > 70:
+                twitter_title = twitter_title[:67] + "..."
+            
+            # Generate Twitter description (200 chars max)
+            twitter_description = description
+            if not twitter_description:
+                twitter_description = f"Apply for {title}. Check details and apply online."
+            
+            if len(twitter_description) > 200:
+                twitter_description = twitter_description[:197] + "..."
+            
+            # Generate Twitter image
+            twitter_image = job_data.get('image_url', '/static/images/sarkaribot-job-card.jpg')
+            
+            twitter_metadata = {
+                'twitter:card': 'summary_large_image',
+                'twitter:site': '@SarkariBot',
+                'twitter:creator': '@SarkariBot',
+                'twitter:title': twitter_title,
+                'twitter:description': twitter_description,
+                'twitter:image': twitter_image,
+                'twitter:url': request_url,
+            }
+            
+            # Add job-specific Twitter data
+            if job_data.get('total_posts'):
+                twitter_metadata['twitter:label1'] = 'Total Posts'
+                twitter_metadata['twitter:data1'] = str(job_data.get('total_posts'))
+            
+            if job_data.get('last_date'):
+                twitter_metadata['twitter:label2'] = 'Last Date'
+                twitter_metadata['twitter:data2'] = job_data.get('last_date')
+            
+            return twitter_metadata
+            
+        except Exception as e:
+            logger.error(f"Error generating Twitter Card metadata: {e}")
+            return self._generate_fallback_twitter_metadata(job_data)
+
+    def generate_breadcrumb_schema(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate breadcrumb structured data.
+        
+        Args:
+            job_data: Dictionary containing job information
+            
+        Returns:
+            BreadcrumbList schema.org structured data
+        """
+        breadcrumbs = [
+            {"name": "Home", "url": "/"},
+            {"name": "Government Jobs", "url": "/jobs/"},
+        ]
+        
+        # Add category breadcrumb
+        if job_data.get('category'):
+            breadcrumbs.append({
+                "name": job_data.get('category'),
+                "url": f"/category/{job_data.get('category_slug', '')}/"
+            })
+        
+        # Add current job
+        job_title = job_data.get('title', '')
+        if len(job_title) > 50:
+            job_title = job_title[:47] + "..."
+        
+        breadcrumbs.append({
+            "name": job_title,
+            "url": f"/jobs/{job_data.get('slug', '')}/"
+        })
+        
+        # Convert to schema.org format
+        breadcrumb_list = {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": []
+        }
+        
+        for i, breadcrumb in enumerate(breadcrumbs):
+            breadcrumb_list["itemListElement"].append({
+                "@type": "ListItem",
+                "position": i + 1,
+                "name": breadcrumb["name"],
+                "item": breadcrumb["url"]
+            })
+        
+        return breadcrumb_list
     
     def _calculate_quality_score(self, job_data: Dict[str, Any], keywords: List[str]) -> float:
         """Calculate SEO quality score."""
@@ -334,6 +658,130 @@ class NLPSEOEngine:
         
         return round(score, 1)
     
+    def _generate_slug(self, title: str) -> str:
+        """Generate URL-friendly slug."""
+        return slugify(title)
+
+    def _generate_fallback_og_metadata(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate basic OpenGraph metadata when full generation fails."""
+        title = job_data.get('title', 'Government Job')
+        return {
+            'og:type': 'article',
+            'og:title': title,
+            'og:description': f"Apply for {title}. Government job opportunity.",
+            'og:site_name': 'SarkariBot - Government Jobs Portal',
+            'og:locale': 'en_IN',
+        }
+
+    def _generate_fallback_twitter_metadata(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate basic Twitter Card metadata when full generation fails."""
+        title = job_data.get('title', 'Government Job')
+        return {
+            'twitter:card': 'summary',
+            'twitter:site': '@SarkariBot',
+            'twitter:title': title,
+            'twitter:description': f"Apply for {title}. Government job opportunity.",
+        }
+
+    def generate_comprehensive_metadata(self, job_data: Dict[str, Any], request_url: str = "") -> Dict[str, Any]:
+        """
+        Generate complete SEO metadata including structured data, OpenGraph, and Twitter Cards.
+        
+        This is an enhanced version of generate_seo_metadata that includes all metadata types.
+        
+        Args:
+            job_data: Dictionary containing job information
+            request_url: Full URL of the job page for social sharing
+            
+        Returns:
+            Dictionary with comprehensive SEO metadata
+        """
+        try:
+            # Generate base SEO metadata
+            base_metadata = self.generate_seo_metadata(job_data)
+            
+            # Generate enhanced structured data
+            enhanced_schema = self._generate_job_schema(job_data)
+            breadcrumb_schema = self.generate_breadcrumb_schema(job_data)
+            
+            # Generate social media metadata
+            og_metadata = self.generate_open_graph_metadata(job_data, request_url)
+            twitter_metadata = self.generate_twitter_card_metadata(job_data, request_url)
+            
+            # Combine all metadata
+            comprehensive_metadata = {
+                **base_metadata,
+                'structured_data': enhanced_schema,
+                'breadcrumb_schema': breadcrumb_schema,
+                'open_graph': og_metadata,
+                'twitter_card': twitter_metadata,
+                'meta_robots': 'index, follow',
+                'canonical_url': request_url or base_metadata.get('canonical_url'),
+                'last_modified': job_data.get('updated_at', datetime.now().isoformat()),
+            }
+            
+            # Calculate enhanced quality score
+            comprehensive_metadata['quality_score'] = self._calculate_comprehensive_quality_score(
+                job_data, comprehensive_metadata
+            )
+            
+            logger.info(f"Generated comprehensive SEO metadata for job: {job_data.get('title', '')}")
+            return comprehensive_metadata
+            
+        except Exception as e:
+            logger.error(f"Error generating comprehensive metadata: {e}")
+    def _calculate_comprehensive_quality_score(self, job_data: Dict[str, Any], metadata: Dict[str, Any]) -> float:
+        """Calculate enhanced SEO quality score including all metadata types."""
+        score = 0.0
+        
+        # Base content quality (40 points)
+        base_score = self._calculate_quality_score(job_data, metadata.get('keywords', []))
+        score += base_score * 0.4
+        
+        # Structured data completeness (20 points)
+        structured_data = metadata.get('structured_data', {})
+        required_schema_fields = [
+            'title', 'description', 'datePosted', 'hiringOrganization',
+            'jobLocation', 'employmentType'
+        ]
+        optional_schema_fields = [
+            'baseSalary', 'educationRequirements', 'validThrough',
+            'qualifications', 'applicationContact'
+        ]
+        
+        schema_score = 0
+        for field in required_schema_fields:
+            if structured_data.get(field):
+                schema_score += 2
+        
+        for field in optional_schema_fields:
+            if structured_data.get(field):
+                schema_score += 1
+        
+        score += min(schema_score, 20)
+        
+        # OpenGraph metadata quality (20 points)
+        og_metadata = metadata.get('open_graph', {})
+        required_og_fields = ['og:title', 'og:description', 'og:type', 'og:url']
+        og_score = sum(2 for field in required_og_fields if og_metadata.get(field))
+        
+        optional_og_fields = ['og:image', 'article:published_time', 'article:author']
+        og_score += sum(3 for field in optional_og_fields if og_metadata.get(field))
+        
+        score += min(og_score, 20)
+        
+        # Twitter Card metadata quality (20 points)
+        twitter_metadata = metadata.get('twitter_card', {})
+        required_twitter_fields = ['twitter:card', 'twitter:title', 'twitter:description']
+        twitter_score = sum(3 for field in required_twitter_fields if twitter_metadata.get(field))
+        
+        optional_twitter_fields = ['twitter:image', 'twitter:data1', 'twitter:data2']
+        twitter_score += sum(2 for field in optional_twitter_fields if twitter_metadata.get(field))
+        
+        score += min(twitter_score, 20)
+        
+        return round(min(score, 100.0), 1)
+
     def _generate_fallback_metadata(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate basic metadata when NLP processing fails."""
         title = job_data.get('title', 'Government Job')

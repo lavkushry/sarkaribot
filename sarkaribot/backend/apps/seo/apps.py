@@ -14,4 +14,8 @@ class SeoConfig(AppConfig):
     
     def ready(self):
         """Initialize app when Django starts."""
-        pass
+        # Import signals to register them
+        try:
+            from . import signals
+        except ImportError:
+            pass
