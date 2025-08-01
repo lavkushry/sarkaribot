@@ -12,7 +12,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, Count, Avg
+from django.db.models import Q, Count, Avg, Sum
 from django.utils import timezone
 from datetime import timedelta
 
@@ -25,19 +25,19 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
-class GovernmentSourceViewSet(viewsets.ReadOnlyModelViewSet):
+class GovernmentSourceViewSet(viewsets.ModelViewSet):
     """
     ViewSet for government sources.
     
-    Provides read-only access to government source information
+    Provides full CRUD operations for government source management
     including statistics and scraping configuration.
     """
     
-    queryset = GovernmentSource.objects.filter(active=True)
+    queryset = GovernmentSource.objects.all()
     serializer_class = GovernmentSourceSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated for production
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['active', 'scrape_frequency']
+    filterset_fields = ['active', 'scrape_frequency', 'status']
     search_fields = ['name', 'display_name', 'description']
     ordering_fields = ['name', 'display_name', 'created_at', 'last_scraped']
     ordering = ['name']
@@ -118,8 +118,8 @@ class GovernmentSourceViewSet(viewsets.ReadOnlyModelViewSet):
             }
         
         aggregates = stats_queryset.aggregate(
-            total_attempted=Count('scrapes_attempted'),
-            total_successful=Count('scrapes_successful'),
+            total_attempted=Sum('scrapes_attempted'),
+            total_successful=Sum('scrapes_successful'),
             avg_jobs=Avg('jobs_found'),
             avg_response_time=Avg('average_response_time')
         )
@@ -136,11 +136,11 @@ class GovernmentSourceViewSet(viewsets.ReadOnlyModelViewSet):
         }
 
 
-class SourceStatisticsViewSet(viewsets.ReadOnlyModelViewSet):
+class SourceStatisticsViewSet(viewsets.ModelViewSet):
     """
     ViewSet for source statistics.
     
-    Provides access to historical scraping statistics and performance metrics.
+    Provides full CRUD access to historical scraping statistics and performance metrics.
     """
     
     queryset = SourceStatistics.objects.all()
