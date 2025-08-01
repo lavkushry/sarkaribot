@@ -19,7 +19,7 @@ from datetime import timedelta
 from .models import GovernmentSource, SourceStatistics
 from .serializers import (
     GovernmentSourceSerializer, GovernmentSourceDetailSerializer,
-    SourceStatisticsSerializer
+    SourceStatisticsSerializer, SourceConfigurationSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -107,6 +107,30 @@ class GovernmentSourceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=False, methods=['post'])
+    def validate_config(self, request):
+        """Validate scraping configuration without saving."""
+        try:
+            serializer = SourceConfigurationSerializer(data=request.data)
+            if serializer.is_valid():
+                return Response({
+                    'valid': True,
+                    'message': 'Configuration is valid',
+                    'validated_data': serializer.validated_data
+                })
+            else:
+                return Response({
+                    'valid': False,
+                    'errors': serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            logger.error(f"Error validating configuration: {e}")
+            return Response(
+                {'error': 'Failed to validate configuration'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
     def _calculate_summary_stats(self, stats_queryset) -> Dict[str, Any]:
         """Calculate summary statistics from queryset."""
         if not stats_queryset.exists():
@@ -145,7 +169,7 @@ class SourceStatisticsViewSet(viewsets.ModelViewSet):
     
     queryset = SourceStatistics.objects.all()
     serializer_class = SourceStatisticsSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny]  # TODO: Change to IsAuthenticated for production
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['source', 'date']
     ordering_fields = ['date', 'scrapes_attempted', 'jobs_found']
