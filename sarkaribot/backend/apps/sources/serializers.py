@@ -186,7 +186,7 @@ class SourceConfigurationSerializer(serializers.Serializer):
     
     base_url = serializers.URLField(required=True)
     scrape_frequency = serializers.IntegerField(min_value=1, max_value=168)  # 1 hour to 1 week
-    is_active = serializers.BooleanField(default=True)
+    active = serializers.BooleanField(default=True)
     
     # Scraping configuration
     requires_javascript = serializers.BooleanField(default=False)
