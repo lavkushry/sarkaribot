@@ -91,14 +91,14 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 # Use SQLite for development and PostgreSQL for production
-if config('DB_ENGINE', default='sqlite3') == 'sqlite3':
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / config('DB_NAME', default='db.sqlite3'),
-        }
-    }
-else:
+# Check if PostgreSQL is available, otherwise fall back to SQLite
+try:
+    import psycopg2
+    POSTGRESQL_AVAILABLE = True
+except ImportError:
+    POSTGRESQL_AVAILABLE = False
+
+if config('DB_ENGINE', default='sqlite3') == 'postgresql' and POSTGRESQL_AVAILABLE:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -108,8 +108,16 @@ else:
             'HOST': config('DB_HOST', default='localhost'),
             'PORT': config('DB_PORT', default='5432'),
             'OPTIONS': {
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+                'connect_timeout': 60,
             },
+        }
+    }
+else:
+    # Default to SQLite for local development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / config('DB_NAME', default='db.sqlite3'),
         }
     }
 

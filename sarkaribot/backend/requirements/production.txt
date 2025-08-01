@@ -3,5 +3,8 @@
 # Production Server
 gunicorn==21.2.0
 
+# Production Database
+psycopg2-binary==2.9.7
+
 # Production Utilities
 whitenoise==6.5.0

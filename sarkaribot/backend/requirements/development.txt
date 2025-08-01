@@ -1,4 +1,4 @@
--r base.txt
+-r base_simple.txt
 
 # Development and Testing
 pytest==7.4.2

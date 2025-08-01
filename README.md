@@ -61,46 +61,60 @@
 ### Prerequisites
 
 - **Python 3.12+**
-- **Node.js 18+**
-- **PostgreSQL 14+** (for production)
-- **Redis 6+** (for caching and Celery)
+- **Node.js 18+** (for frontend)
+
+**Note**: PostgreSQL and Redis are **NOT required** for local development! They are only needed for production deployment.
 
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/sarkaribot.git
+git clone https://github.com/lavkushry/sarkaribot.git
 cd sarkaribot
 ```
 
-### 2. Backend Setup
+### 2. Automated Local Setup (Recommended)
+
+```bash
+# Run the setup script
+chmod +x scripts/setup_local_dev.sh
+./scripts/setup_local_dev.sh
+```
+
+This script will automatically:
+- Create a Python virtual environment
+- Install all required dependencies (without PostgreSQL)
+- Set up SQLite database
+- Configure environment variables
+- Run migrations
+- Offer to create a superuser
+
+### 3. Manual Backend Setup (Alternative)
 
 ```bash
 # Navigate to backend
-cd backend
+cd sarkaribot/backend
 
 # Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements/dev.txt
+# Install dependencies (without PostgreSQL)
+pip install -r requirements/development.txt
 
 # Environment configuration
 cp .env.example .env
-# Edit .env with your settings
+# The default .env uses SQLite - no editing needed!
 
 # Database setup
+export DJANGO_SETTINGS_MODULE="config.settings_local"
 python manage.py migrate
 python manage.py createsuperuser
-
-# Create sample data
-python create_sample_data.py
 
 # Start development server
 python manage.py runserver
 ```
 
-### 3. Frontend Setup
+### 4. Frontend Setup
 
 ```bash
 # Navigate to frontend (new terminal)
@@ -113,7 +127,7 @@ npm install
 npm start
 ```
 
-### 4. Access Application
+### 5. Access Application
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8000/api/v1/
@@ -509,6 +523,20 @@ CELERY_BEAT_SCHEDULE = {
 
 ## 🚀 Deployment
 
+### Local Development vs Production
+
+#### Local Development (Simple)
+- **Database**: SQLite (automatically created)
+- **Cache**: Dummy cache (no Redis needed)
+- **Setup**: Run `./scripts/setup_local_dev.sh`
+- **Requirements**: `requirements/development.txt`
+
+#### Production Deployment (Full Features)
+- **Database**: PostgreSQL (for scalability)
+- **Cache**: Redis (for performance)
+- **Setup**: Full deployment process below
+- **Requirements**: `requirements/production.txt`
+
 ### Production Setup
 
 1.  **Server Requirements**:
@@ -535,18 +563,22 @@ CELERY_BEAT_SCHEDULE = {
 4.  **Application Deployment**:
     ```bash
     # Clone and setup
-    git clone https://github.com/yourusername/sarkaribot.git
+    git clone https://github.com/lavkushry/sarkaribot.git
     cd sarkaribot
     
     # Backend deployment
-    cd backend
+    cd sarkaribot/backend
     python -m venv venv
     source venv/bin/activate
-    pip install -r requirements/prod.txt
+    pip install -r requirements/production.txt
     
     # Environment configuration
     cp .env.example .env
-    # Edit .env with production settings
+    # Edit .env with production PostgreSQL settings:
+    # DB_ENGINE=postgresql
+    # DB_NAME=sarkaribot
+    # DB_USER=sarkaribot_user
+    # DB_PASSWORD=secure_password
     
     # Database setup
     python manage.py migrate
@@ -554,7 +586,7 @@ CELERY_BEAT_SCHEDULE = {
     python manage.py createsuperuser
     
     # Frontend build
-    cd ../frontend
+    cd ../../frontend
     npm install
     npm run build
     ```
