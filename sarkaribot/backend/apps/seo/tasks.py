@@ -7,6 +7,7 @@ SEO metadata for job postings using NLP and automation.
 
 from celery import shared_task
 from django.utils import timezone
+from django.db import models
 from typing import Dict, List, Any, Optional
 import logging
 from datetime import timedelta
@@ -14,7 +15,7 @@ from datetime import timedelta
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=2)
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def generate_seo_metadata(self, job_posting_id: int, force_update: bool = False):
     """
     Generate SEO metadata for a single job posting.
@@ -25,13 +26,26 @@ def generate_seo_metadata(self, job_posting_id: int, force_update: bool = False)
         
     Returns:
         Dict with generation results
+        
+    Raises:
+        Exception: When SEO generation fails after all retries
     """
     from apps.jobs.models import JobPosting
     from apps.seo.engine import seo_engine
     
     try:
+        logger.info(f"Starting SEO metadata generation for job {job_posting_id}")
+        
         # Get the job posting
-        job_posting = JobPosting.objects.get(id=job_posting_id)
+        try:
+            job_posting = JobPosting.objects.get(id=job_posting_id)
+        except JobPosting.DoesNotExist:
+            logger.error(f"Job posting {job_posting_id} not found")
+            return {
+                'success': False,
+                'job_id': job_posting_id,
+                'error': 'job_not_found'
+            }
         
         # Check if metadata already exists and force_update is False
         if (job_posting.seo_title and job_posting.seo_description and 
@@ -108,28 +122,34 @@ def generate_seo_metadata(self, job_posting_id: int, force_update: bool = False)
             'has_structured_data': bool(seo_metadata.get('structured_data')),
         }
         
-    except JobPosting.DoesNotExist:
-        logger.error(f"Job posting {job_posting_id} not found")
+    except ImportError as exc:
+        logger.error(f"SEO engine import failed for job {job_posting_id}: {exc}")
         return {
             'success': False,
             'job_id': job_posting_id,
-            'error': 'job_not_found'
+            'error': 'seo_engine_unavailable',
+            'error_details': str(exc)
         }
         
     except Exception as exc:
-        logger.error(f"SEO metadata generation failed for job {job_posting_id}: {exc}")
+        logger.error(f"SEO metadata generation failed for job {job_posting_id}: {exc}", exc_info=True)
         
+        # Check if we should retry
         if self.request.retries < self.max_retries:
-            raise self.retry(countdown=60 * (self.request.retries + 1))
+            logger.info(f"Retrying SEO generation for job {job_posting_id}, attempt {self.request.retries + 1}")
+            raise self.retry(countdown=60 * (self.request.retries + 1), exc=exc)
         else:
+            logger.error(f"SEO generation failed permanently for job {job_posting_id} after {self.max_retries} retries")
             return {
                 'success': False,
                 'job_id': job_posting_id,
-                'error': str(exc)
+                'error': 'generation_failed',
+                'error_details': str(exc),
+                'retries_exhausted': True
             }
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, max_retries=2, default_retry_delay=300)
 def bulk_generate_seo_metadata(self, job_ids: List[int] = None, category_slug: str = None, 
                               days_back: int = None, force_update: bool = False):
     """
@@ -143,17 +163,32 @@ def bulk_generate_seo_metadata(self, job_ids: List[int] = None, category_slug: s
         
     Returns:
         Dict with bulk processing results
+        
+    Raises:
+        Exception: When bulk processing fails after all retries
     """
     from apps.jobs.models import JobPosting, JobCategory
     from datetime import timedelta
     
     try:
+        logger.info(f"Starting bulk SEO metadata generation with params: "
+                   f"job_ids={job_ids}, category_slug={category_slug}, "
+                   f"days_back={days_back}, force_update={force_update}")
+        
         # Build queryset based on parameters
         if job_ids:
             queryset = JobPosting.objects.filter(id__in=job_ids)
         elif category_slug:
-            category = JobCategory.objects.get(slug=category_slug)
-            queryset = JobPosting.objects.filter(category=category)
+            try:
+                category = JobCategory.objects.get(slug=category_slug)
+                queryset = JobPosting.objects.filter(category=category)
+            except JobCategory.DoesNotExist:
+                logger.error(f"Category with slug '{category_slug}' not found")
+                return {
+                    'success': False,
+                    'error': 'category_not_found',
+                    'category_slug': category_slug
+                }
         elif days_back:
             cutoff_date = timezone.now() - timedelta(days=days_back)
             queryset = JobPosting.objects.filter(created_at__gte=cutoff_date)
@@ -388,14 +423,21 @@ def analyze_seo_performance():
         # Calculate metrics
         coverage_rate = (jobs_with_seo.count() / total_jobs * 100) if total_jobs > 0 else 0
         
-        # Analyze title lengths
-        titles_optimal = jobs_with_seo.filter(
-            seo_title__regex=r'^.{40,60}$'
+        # Analyze title lengths (using length-based filtering)
+        from django.db.models import Length
+        titles_optimal = jobs_with_seo.annotate(
+            title_length=Length('seo_title')
+        ).filter(
+            title_length__gte=40,
+            title_length__lte=60
         ).count()
         
         # Analyze description lengths
-        descriptions_optimal = jobs_with_seo.filter(
-            seo_description__regex=r'^.{140,160}$'
+        descriptions_optimal = jobs_with_seo.annotate(
+            desc_length=Length('seo_description')
+        ).filter(
+            desc_length__gte=140,
+            desc_length__lte=160
         ).count()
         
         # Jobs with keywords
@@ -445,11 +487,12 @@ def optimize_existing_metadata():
     try:
         # Find jobs with suboptimal SEO metadata
         suboptimal_jobs = JobPosting.objects.filter(
-            status__in=['announced', 'admit_card', 'answer_key', 'result'],
-            models.Q(seo_title__regex=r'^.{0,39}$') |  # Title too short
-            models.Q(seo_title__regex=r'^.{61,}$') |   # Title too long
-            models.Q(seo_description__regex=r'^.{0,139}$') |  # Description too short
-            models.Q(seo_description__regex=r'^.{161,}$') |   # Description too long
+            status__in=['announced', 'admit_card', 'answer_key', 'result']
+        ).filter(
+            models.Q(seo_title__isnull=True) |
+            models.Q(seo_title='') |
+            models.Q(seo_description__isnull=True) |
+            models.Q(seo_description='') |
             models.Q(keywords__isnull=True) |
             models.Q(keywords='')
         )[:50]  # Limit to 50 jobs per run
