@@ -1,9 +1,9 @@
 """
-Django settings for local development with SQLite
+Django settings for local development with SQLite.
+This eliminates PostgreSQL dependency for local development.
 """
 
 from .settings.base import *
-import os
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -22,19 +22,21 @@ DATABASES = {
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'sarkaribot-cache',
     }
 }
 
-# CORS configuration for development
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+# Celery Configuration (Use DB for local development)
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
 
-# Static files configuration
+# Email backend for development
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Static files
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Media files configuration
+# Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -46,31 +48,24 @@ LOGGING = {
         'console': {
             'class': 'logging.StreamHandler',
         },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'django.log',
+        },
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
             'level': 'INFO',
         },
         'apps': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
             'level': 'DEBUG',
         },
     },
 }
 
-# Enable Django admin
-ADMIN_ENABLED = True
-
-# Django REST Framework settings
-REST_FRAMEWORK.update({
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ]
-})
-
-print("✅ Local development settings loaded successfully!")
-print("📊 Database: SQLite")
-print("📊 Cache: Local Memory")
-print("📊 Debug Mode: True")
+# SEO Configuration
+SEO_TITLE_MAX_LENGTH = 60
+SEO_DESCRIPTION_MAX_LENGTH = 160
+SEO_KEYWORDS_MAX_COUNT = 7
