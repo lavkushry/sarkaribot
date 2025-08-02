@@ -102,6 +102,13 @@ class NLPSEOEngine:
             # Generate meta description (150-160 characters as per Knowledge.md)
             seo_description = self._generate_seo_description(job_data)
 
+            # Ensure lengths are within limits
+            if len(seo_title) > self.seo_title_max_length:
+                seo_title = seo_title[:self.seo_title_max_length-3] + "..."
+
+            if len(seo_description) > self.seo_description_max_length:
+                seo_description = seo_description[:self.seo_description_max_length-3] + "..."
+
             # Generate structured data (schema.org JobPosting)
             structured_data = self._generate_job_schema(job_data)
 
@@ -114,7 +121,7 @@ class NLPSEOEngine:
                 'keywords': keywords[:self.seo_keywords_max_count],
                 'structured_data': structured_data,
                 'slug': slug,
-                'canonical_url': f"/{job_data.get('category', 'jobs')}/{slug}/",
+                'canonical_url': f"/jobs/{slug}/",
                 'generation_method': 'auto_nlp',
                 'quality_score': self._calculate_quality_score(job_data, keywords)
             }
