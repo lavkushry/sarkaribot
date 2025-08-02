@@ -1,7 +1,7 @@
 # Core NLP dependencies compatible with Python 3.12
 # Basic text processing
 textblob==0.17.1
-nltk==3.8.1
+nltk==3.9
 
 # Advanced NLP
 spacy==3.7.2

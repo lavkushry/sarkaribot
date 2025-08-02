@@ -21,7 +21,7 @@ lxml==4.9.3
 
 # NLP and SEO
 spacy==3.6.1
-nltk==3.8.1
+nltk==3.9
 
 # API Documentation
 drf-spectacular==0.26.4
