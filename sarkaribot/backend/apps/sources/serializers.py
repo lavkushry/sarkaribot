@@ -8,6 +8,7 @@ according to Knowledge.md specifications.
 from rest_framework import serializers
 from typing import Dict, Any
 from django.utils import timezone
+from django.db import models
 from datetime import timedelta
 
 from .models import GovernmentSource, SourceStatistics
@@ -100,7 +101,7 @@ class GovernmentSourceDetailSerializer(GovernmentSourceSerializer):
     def get_scraping_config(self, obj) -> Dict[str, Any]:
         """Get sanitized scraping configuration."""
         # Return public configuration only (no sensitive data)
-        config = obj.scraping_config
+        config = obj.config_json
         
         public_config = {
             'scrape_frequency_hours': obj.scrape_frequency,
@@ -131,14 +132,14 @@ class GovernmentSourceDetailSerializer(GovernmentSourceSerializer):
         uptime_percentage = (successful_days / total_days * 100) if total_days > 0 else 0.0
         
         avg_response_time = month_stats.aggregate(
-            avg_time=serializers.Avg('average_response_time')
+            avg_time=models.Avg('average_response_time')
         )['avg_time'] or 0.0
         
         total_jobs = sum(stat.jobs_found for stat in month_stats)
         
         # Calculate data quality score based on completeness
         avg_quality = month_stats.aggregate(
-            avg_quality=serializers.Avg('average_quality_score')
+            avg_quality=models.Avg('average_quality_score')
         )['avg_quality'] or 0.0
         
         return {

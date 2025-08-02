@@ -290,6 +290,10 @@ class SourceStatistics(TimestampedModel):
         default=0,
         help_text="New jobs found"
     )
+    jobs_created = models.PositiveIntegerField(
+        default=0,
+        help_text="New jobs created in database"
+    )
     jobs_updated = models.PositiveIntegerField(
         default=0,
         help_text="Existing jobs updated"
@@ -304,6 +308,11 @@ class SourceStatistics(TimestampedModel):
     total_pages_scraped = models.PositiveIntegerField(
         default=0,
         help_text="Total pages scraped"
+    )
+    average_quality_score = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Average quality score of scraped data (0-100)"
     )
     
     class Meta:
