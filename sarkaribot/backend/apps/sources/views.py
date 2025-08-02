@@ -28,61 +28,61 @@ logger = logging.getLogger(__name__)
 class GovernmentSourceViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for government sources.
-    
+
     Provides read-only access to government source information
     including statistics and scraping configuration.
     """
-    
-    queryset = GovernmentSource.objects.filter(active=True)
+
+    queryset = GovernmentSource.objects.filter(is_active=True)
     serializer_class = GovernmentSourceSerializer
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['active', 'scrape_frequency']
+    filterset_fields = ['is_active', 'scrape_frequency']
     search_fields = ['name', 'display_name', 'description']
     ordering_fields = ['name', 'display_name', 'created_at', 'last_scraped']
     ordering = ['name']
-    
+
     def get_serializer_class(self):
         """Return detailed serializer for detail view."""
         if self.action == 'retrieve':
             return GovernmentSourceDetailSerializer
         return GovernmentSourceSerializer
-    
+
     @action(detail=True, methods=['get'])
     def statistics(self, request, pk=None):
         """Get detailed statistics for a specific source."""
         source = self.get_object()
-        
+
         # Get recent statistics (last 30 days)
         thirty_days_ago = timezone.now() - timedelta(days=30)
         stats = SourceStatistics.objects.filter(
             source=source,
             date__gte=thirty_days_ago
         ).order_by('-date')
-        
+
         serializer = SourceStatisticsSerializer(stats, many=True)
-        
+
         return Response({
             'source': source.name,
             'period': '30_days',
             'statistics': serializer.data,
             'summary': self._calculate_summary_stats(stats)
         })
-    
+
     @action(detail=False, methods=['get'])
     def performance_summary(self, request):
         """Get performance summary for all sources."""
         try:
             sources = self.get_queryset()
             summary_data = []
-            
+
             for source in sources:
                 # Get recent stats
                 recent_stats = SourceStatistics.objects.filter(
                     source=source,
                     date__gte=timezone.now() - timedelta(days=7)
                 )
-                
+
                 summary = {
                     'source_id': source.id,
                     'name': source.name,
@@ -93,20 +93,20 @@ class GovernmentSourceViewSet(viewsets.ReadOnlyModelViewSet):
                     'recent_performance': self._calculate_summary_stats(recent_stats)
                 }
                 summary_data.append(summary)
-            
+
             return Response({
                 'total_sources': len(summary_data),
                 'active_sources': len([s for s in summary_data if s['active']]),
                 'sources': summary_data
             })
-            
+
         except Exception as e:
             logger.error(f"Error generating performance summary: {e}")
             return Response(
                 {'error': 'Failed to generate performance summary'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     def _calculate_summary_stats(self, stats_queryset) -> Dict[str, Any]:
         """Calculate summary statistics from queryset."""
         if not stats_queryset.exists():
@@ -116,18 +116,18 @@ class GovernmentSourceViewSet(viewsets.ReadOnlyModelViewSet):
                 'avg_jobs_found': 0.0,
                 'avg_response_time': 0.0
             }
-        
+
         aggregates = stats_queryset.aggregate(
             total_attempted=Count('scrapes_attempted'),
             total_successful=Count('scrapes_successful'),
             avg_jobs=Avg('jobs_found'),
             avg_response_time=Avg('average_response_time')
         )
-        
+
         total_attempted = aggregates['total_attempted'] or 0
         total_successful = aggregates['total_successful'] or 0
         success_rate = (total_successful / total_attempted * 100) if total_attempted > 0 else 0.0
-        
+
         return {
             'total_scrapes': total_attempted,
             'success_rate': round(success_rate, 2),
@@ -139,71 +139,80 @@ class GovernmentSourceViewSet(viewsets.ReadOnlyModelViewSet):
 class SourceStatisticsViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for source statistics.
-    
-    Provides access to historical scraping statistics and performance metrics.
+
+    Provides read-only access to daily source statistics
+    with filtering and search capabilities.
     """
-    
+
     queryset = SourceStatistics.objects.all()
     serializer_class = SourceStatisticsSerializer
     permission_classes = [AllowAny]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['source', 'date']
-    ordering_fields = ['date', 'scrapes_attempted', 'jobs_found']
+    search_fields = ['source__name']
+    ordering_fields = ['date', 'scrapes_successful', 'jobs_found']
     ordering = ['-date']
-    
-    def get_queryset(self):
-        """Filter queryset based on query parameters."""
-        queryset = super().get_queryset()
-        
-        # Filter by date range if provided
-        date_from = self.request.query_params.get('date_from')
-        date_to = self.request.query_params.get('date_to')
-        
-        if date_from:
-            queryset = queryset.filter(date__gte=date_from)
-        if date_to:
-            queryset = queryset.filter(date__lte=date_to)
-        
-        return queryset.select_related('source')
-    
+
     @action(detail=False, methods=['get'])
-    def trends(self, request):
-        """Get trending statistics over time."""
-        try:
-            # Get last 30 days by default
-            days = int(request.query_params.get('days', 30))
-            start_date = timezone.now() - timedelta(days=days)
+    def summary(self, request):
+        """Get summary statistics for all sources."""
+
+        # Get last 30 days of statistics
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+
+        summary = SourceStatistics.objects.filter(
+            date__gte=thirty_days_ago
+        ).aggregate(
+            total_scrapes_attempted=Count('scrapes_attempted'),
+            total_scrapes_successful=Count('scrapes_successful'),
+            total_jobs_found=Count('jobs_found'),
+            avg_response_time=Avg('average_response_time')
+        )
+
+        return Response({
+            'period': '30_days',
+            'summary': summary
+        })
+
+    @action(detail=False, methods=['get'])
+    def performance(self, request):
+        """Get performance metrics for all sources."""
+        from django.db.models import Count, Avg, Q
+        from datetime import timedelta
+        from django.utils import timezone
+        
+        # Get statistics for last 30 days
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        
+        sources_stats = []
+        for source in self.get_queryset():
+            stats = {
+                'source_id': source.id,
+                'source_name': source.name,
+                'display_name': source.display_name,
+                'is_active': source.is_active,
+                'last_scraped': source.last_scraped,
+                'total_jobs_found': source.total_jobs_found,
+                'scrape_frequency': source.scrape_frequency,
+                'status': source.status,
+            }
             
-            stats = self.get_queryset().filter(date__gte=start_date)
+            # Add recent job counts if jobs app is available
+            try:
+                from apps.jobs.models import JobPosting
+                recent_jobs = JobPosting.objects.filter(
+                    source=source,
+                    created_at__gte=thirty_days_ago
+                ).count()
+                stats['recent_jobs_count'] = recent_jobs
+            except ImportError:
+                stats['recent_jobs_count'] = 0
             
-            # Group by date
-            trends_data = {}
-            for stat in stats:
-                date_str = stat.date.isoformat()
-                if date_str not in trends_data:
-                    trends_data[date_str] = {
-                        'date': date_str,
-                        'total_scrapes': 0,
-                        'total_jobs_found': 0,
-                        'sources_active': 0
-                    }
-                
-                trends_data[date_str]['total_scrapes'] += stat.scrapes_attempted
-                trends_data[date_str]['total_jobs_found'] += stat.jobs_found
-                trends_data[date_str]['sources_active'] += 1
-            
-            # Convert to list and sort by date
-            trends_list = list(trends_data.values())
-            trends_list.sort(key=lambda x: x['date'])
-            
-            return Response({
-                'period_days': days,
-                'trends': trends_list
-            })
-            
-        except Exception as e:
-            logger.error(f"Error generating trends data: {e}")
-            return Response(
-                {'error': 'Failed to generate trends data'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            sources_stats.append(stats)
+        
+        return Response({
+            'success': True,
+            'data': sources_stats,
+            'period': '30_days',
+            'generated_at': timezone.now().isoformat()
+        })
