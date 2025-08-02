@@ -222,47 +222,46 @@ def bulk_generate_seo_metadata(job_ids: Optional[List[int]] = None, category_slu
 def update_outdated_seo_metadata():
     """
     Update SEO metadata for job postings that haven't been updated recently.
-    
+
     This task runs daily to keep SEO metadata fresh and up-to-date.
     """
     from apps.jobs.models import JobPosting
-    from django.db import models
-    
+    from django.db.models import Q
+
     try:
         # Find jobs with outdated SEO metadata (older than 30 days)
         cutoff_date = timezone.now() - timedelta(days=30)
-        
+
         outdated_jobs = JobPosting.objects.filter(
-            models.Q(seo_updated_at__lt=cutoff_date) |
-            models.Q(seo_updated_at__isnull=True),
+            Q(seo_title__isnull=True) | Q(seo_description__isnull=True),
             status__in=['announced', 'admit_card', 'answer_key', 'result']
         ).order_by('-created_at')[:100]  # Limit to 100 jobs per run
-        
+
         logger.info(f"Found {outdated_jobs.count()} jobs with outdated SEO metadata")
-        
+
         if not outdated_jobs.exists():
             return {
                 'success': True,
                 'updated': 0,
                 'message': 'No outdated SEO metadata found'
             }
-        
+
         # Queue SEO generation for outdated jobs
         updated_count = 0
         for job in outdated_jobs:
             try:
-                generate_seo_metadata.delay(job.id, force_update=True)
+                generate_seo_metadata.delay(job.pk, force_update=True)
                 updated_count += 1
             except Exception as e:
-                logger.error(f"Failed to queue SEO update for job {job.id}: {e}")
-        
+                logger.error(f"Failed to queue SEO update for job {job.pk}: {e}")
+
         logger.info(f"Queued SEO updates for {updated_count} jobs")
-        
+
         return {
             'success': True,
             'updated': updated_count,
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to update outdated SEO metadata: {e}")
         raise
@@ -272,24 +271,24 @@ def update_outdated_seo_metadata():
 def generate_sitemap_data():
     """
     Generate sitemap data for all active job postings.
-    
+
     This task runs daily to update the sitemap with fresh URLs.
     """
     from apps.jobs.models import JobPosting
     from django.conf import settings
     import os
-    
+
     try:
         # Get all active job postings
         active_jobs = JobPosting.objects.filter(
             status__in=['announced', 'admit_card', 'answer_key', 'result'],
             published_at__isnull=False
         ).order_by('-created_at')
-        
+
         logger.info(f"Generating sitemap for {active_jobs.count()} active jobs")
-        
+
         sitemap_entries = []
-        
+
         for job in active_jobs:
             entry = {
                 'url': f"https://sarkaribot.com/jobs/{job.slug}",
@@ -298,25 +297,25 @@ def generate_sitemap_data():
                 'priority': '0.8'
             }
             sitemap_entries.append(entry)
-        
+
         # Generate XML sitemap
         sitemap_xml = generate_sitemap_xml(sitemap_entries)
-        
+
         # Save sitemap to file
         sitemap_path = os.path.join(settings.STATIC_ROOT or 'static', 'sitemap.xml')
         os.makedirs(os.path.dirname(sitemap_path), exist_ok=True)
-        
+
         with open(sitemap_path, 'w', encoding='utf-8') as f:
             f.write(sitemap_xml)
-        
+
         logger.info(f"Sitemap generated with {len(sitemap_entries)} URLs")
-        
+
         return {
             'success': True,
             'urls_count': len(sitemap_entries),
             'sitemap_path': sitemap_path
         }
-        
+
     except Exception as e:
         logger.error(f"Sitemap generation failed: {e}")
         raise
@@ -325,10 +324,10 @@ def generate_sitemap_data():
 def generate_sitemap_xml(entries: List[Dict[str, str]]) -> str:
     """
     Generate XML sitemap from entries.
-    
+
     Args:
         entries: List of sitemap entry dictionaries
-        
+
     Returns:
         XML sitemap as string
     """
@@ -336,7 +335,7 @@ def generate_sitemap_xml(entries: List[Dict[str, str]]) -> str:
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
     ]
-    
+
     for entry in entries:
         xml_lines.extend([
             '  <url>',
@@ -346,9 +345,9 @@ def generate_sitemap_xml(entries: List[Dict[str, str]]) -> str:
             f'    <priority>{entry["priority"]}</priority>',
             '  </url>'
         ])
-    
+
     xml_lines.append('</urlset>')
-    
+
     return '\n'.join(xml_lines)
 
 
@@ -356,12 +355,12 @@ def generate_sitemap_xml(entries: List[Dict[str, str]]) -> str:
 def analyze_seo_performance():
     """
     Analyze SEO performance metrics for job postings.
-    
+
     This task runs weekly to generate SEO performance reports.
     """
     from apps.jobs.models import JobPosting
     from django.db import models
-    
+
     try:
         # Get all active jobs with SEO metadata
         jobs_with_seo = JobPosting.objects.filter(
@@ -372,34 +371,34 @@ def analyze_seo_performance():
             seo_title='',
             seo_description=''
         )
-        
+
         total_jobs = JobPosting.objects.filter(
             status__in=['announced', 'admit_card', 'answer_key', 'result']
         ).count()
-        
+
         # Calculate metrics
         coverage_rate = (jobs_with_seo.count() / total_jobs * 100) if total_jobs > 0 else 0
-        
+
         # Analyze title lengths
         titles_optimal = jobs_with_seo.filter(
             seo_title__regex=r'^.{40,60}$'
         ).count()
-        
+
         # Analyze description lengths
         descriptions_optimal = jobs_with_seo.filter(
             seo_description__regex=r'^.{140,160}$'
         ).count()
-        
+
         # Jobs with keywords
         jobs_with_keywords = jobs_with_seo.exclude(
             models.Q(keywords__isnull=True) | models.Q(keywords='')
         ).count()
-        
+
         # Jobs with structured data
         jobs_with_structured_data = jobs_with_seo.exclude(
             structured_data__isnull=True
         ).count()
-        
+
         metrics = {
             'total_jobs': total_jobs,
             'jobs_with_seo': jobs_with_seo.count(),
@@ -410,15 +409,15 @@ def analyze_seo_performance():
             'jobs_with_structured_data': jobs_with_structured_data,
             'analysis_date': timezone.now().isoformat(),
         }
-        
+
         logger.info(f"SEO performance analysis completed: {metrics}")
-        
+
         # Store metrics (you could save to a SEOMetrics model)
         return {
             'success': True,
             'metrics': metrics
         }
-        
+
     except Exception as e:
         logger.error(f"SEO performance analysis failed: {e}")
         raise
@@ -428,43 +427,45 @@ def analyze_seo_performance():
 def optimize_existing_metadata():
     """
     Optimize existing SEO metadata based on performance data.
-    
+
     This task identifies and improves poorly performing SEO metadata.
     """
     from apps.jobs.models import JobPosting
-    from apps.seo.engine import seo_engine
-    
+    from django.db.models import Q
+
     try:
         # Find jobs with suboptimal SEO metadata
+        q_objects = (
+            Q(seo_title__regex=r'^.{0,39}$') |  # Title too short
+            Q(seo_title__regex=r'^.{61,}$') |   # Title too long
+            Q(seo_description__regex=r'^.{0,139}$') |  # Description too short
+            Q(seo_description__regex=r'^.{161,}$') |   # Description too long
+            Q(keywords__isnull=True) |
+            Q(keywords='')
+        )
         suboptimal_jobs = JobPosting.objects.filter(
-            status__in=['announced', 'admit_card', 'answer_key', 'result'],
-            models.Q(seo_title__regex=r'^.{0,39}$') |  # Title too short
-            models.Q(seo_title__regex=r'^.{61,}$') |   # Title too long
-            models.Q(seo_description__regex=r'^.{0,139}$') |  # Description too short
-            models.Q(seo_description__regex=r'^.{161,}$') |   # Description too long
-            models.Q(keywords__isnull=True) |
-            models.Q(keywords='')
-        )[:50]  # Limit to 50 jobs per run
-        
+            status__in=['announced', 'admit_card', 'answer_key', 'result']
+        ).filter(q_objects)[:50]  # Limit to 50 jobs per run
+
         logger.info(f"Found {suboptimal_jobs.count()} jobs with suboptimal SEO metadata")
-        
+
         optimized_count = 0
-        
+
         for job in suboptimal_jobs:
             try:
                 # Regenerate SEO metadata with optimization
-                generate_seo_metadata.delay(job.id, force_update=True)
+                generate_seo_metadata.delay(job.pk, force_update=True)
                 optimized_count += 1
             except Exception as e:
-                logger.error(f"Failed to queue SEO optimization for job {job.id}: {e}")
-        
+                logger.error(f"Failed to queue SEO optimization for job {job.pk}: {e}")
+
         logger.info(f"Queued SEO optimization for {optimized_count} jobs")
-        
+
         return {
             'success': True,
             'optimized': optimized_count
         }
-        
+
     except Exception as e:
         logger.error(f"SEO optimization failed: {e}")
         raise
