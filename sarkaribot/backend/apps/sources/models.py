@@ -56,7 +56,7 @@ class GovernmentSource(TimestampedModel):
     )
     
     # Scraping Configuration
-    active = models.BooleanField(
+    is_active = models.BooleanField(
         default=True,
         help_text="Whether this source should be actively scraped"
     )
@@ -96,7 +96,7 @@ class GovernmentSource(TimestampedModel):
         ordering = ['name']
         indexes = [
             models.Index(fields=['name']),
-            models.Index(fields=['active', 'status']),
+            models.Index(fields=['is_active', 'status']),
             models.Index(fields=['last_scraped']),
         ]
         verbose_name = 'Government Source'
@@ -112,7 +112,7 @@ class GovernmentSource(TimestampedModel):
         Returns:
             True if source should be scraped now, False otherwise
         """
-        if not self.active or self.status != 'active':
+        if not self.is_active or self.status != 'active':
             return False
         
         if not self.last_scraped:

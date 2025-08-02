@@ -1,17 +1,14 @@
 {
-  "apiUrl": "http://127.0.0.1:8000/api/v1",
+  "baseURL": "http://127.0.0.1:8000/api/v1",
   "endpoints": {
     "jobs": "/jobs/",
     "categories": "/categories/",
+    "sources": "/sources/",
     "stats": "/stats/",
-    "search": "/search/",
-    "sources": "/sources/"
+    "search": "/search/"
   },
   "pagination": {
     "pageSize": 20,
     "maxPageSize": 100
-  },
-  "cache": {
-    "ttl": 300000
   }
 }

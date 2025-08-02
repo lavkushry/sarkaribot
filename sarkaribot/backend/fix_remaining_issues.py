@@ -26,31 +26,31 @@ logger = logging.getLogger(__name__)
 
 class SarkariBotFixer:
     """Main class to fix all remaining issues"""
-    
+
     def __init__(self):
         self.base_dir = Path(__file__).parent
         self.backend_dir = self.base_dir
         self.frontend_dir = self.base_dir.parent / "frontend"
         self.venv_dir = self.backend_dir / "venv"
-        
+
     def run_command(self, cmd, cwd=None, check=True):
         """Run shell command with proper error handling"""
         try:
             logger.info(f"Running: {cmd}")
             if cwd:
                 result = subprocess.run(
-                    cmd, shell=True, check=check, cwd=cwd,
+                    ["bash", "-c", cmd], check=check, cwd=cwd,
                     capture_output=True, text=True
                 )
             else:
                 result = subprocess.run(
-                    cmd, shell=True, check=check,
+                    ["bash", "-c", cmd], check=check,
                     capture_output=True, text=True
                 )
-            
+
             if result.stdout:
                 logger.info(f"Output: {result.stdout.strip()}")
-            
+
             return result
         except subprocess.CalledProcessError as e:
             logger.error(f"Command failed: {cmd}")
@@ -58,11 +58,11 @@ class SarkariBotFixer:
             if check:
                 raise
             return e
-    
+
     def install_nlp_dependencies(self):
         """Install NLP dependencies for Python 3.12"""
         logger.info("=== Installing NLP Dependencies ===")
-        
+
         # Create updated requirements for NLP
         nlp_requirements = """
 # Core NLP dependencies compatible with Python 3.12
@@ -80,17 +80,21 @@ python-slugify==8.0.1
 beautifulsoup4==4.12.2
 lxml==4.9.3
 """
-        
+
         nlp_req_file = self.backend_dir / "requirements" / "nlp.txt"
         with open(nlp_req_file, 'w') as f:
             f.write(nlp_requirements.strip())
-        
+
         # Install NLP requirements
         activate_cmd = f"source {self.venv_dir}/bin/activate"
+        install_setuptools_cmd = f"{activate_cmd} && pip install -U pip setuptools wheel"
         install_cmd = f"{activate_cmd} && pip install -r requirements/nlp.txt"
-        
+
+        # First install setuptools
+        self.run_command(install_setuptools_cmd, cwd=self.backend_dir)
+        # Then install the NLP requirements
         self.run_command(install_cmd, cwd=self.backend_dir)
-        
+
         # Download NLTK data
         nltk_setup = """
 import nltk
@@ -103,20 +107,20 @@ try:
 except Exception as e:
     print(f"NLTK download error: {e}")
 """
-        
+
         nltk_setup_file = self.backend_dir / "setup_nltk.py"
         with open(nltk_setup_file, 'w') as f:
             f.write(nltk_setup)
-        
+
         setup_cmd = f"{activate_cmd} && python setup_nltk.py"
         self.run_command(setup_cmd, cwd=self.backend_dir, check=False)
-        
+
         logger.info("✓ NLP dependencies installed")
-    
+
     def create_enhanced_seo_engine(self):
         """Create enhanced SEO engine with fallback NLP"""
         logger.info("=== Creating Enhanced SEO Engine ===")
-        
+
         enhanced_seo_code = '''"""
 Enhanced SEO Engine with NLTK fallback for SarkariBot.
 
@@ -165,7 +169,7 @@ class EnhancedSEOEngine:
     """
     Enhanced SEO engine with multiple NLP backends and graceful fallbacks.
     """
-    
+
     def __init__(self):
         """Initialize the enhanced SEO engine."""
         self.stop_words = self._get_stop_words()
@@ -177,9 +181,9 @@ class EnhancedSEOEngine:
                 stop_words='english',
                 ngram_range=(1, 2)
             )
-        
+
         logger.info(f"SEO Engine initialized - NLTK: {NLTK_AVAILABLE}, Sklearn: {SKLEARN_AVAILABLE}")
-    
+
     def _get_stop_words(self):
         """Get stop words with fallback."""
         if NLTK_AVAILABLE:
@@ -188,7 +192,7 @@ class EnhancedSEOEngine:
             except:
                 pass
         return BASIC_STOP_WORDS
-    
+
     def _get_lemmatizer(self):
         """Get lemmatizer with fallback."""
         if NLTK_AVAILABLE:
@@ -197,22 +201,22 @@ class EnhancedSEOEngine:
             except:
                 pass
         return None
-    
+
     def extract_keywords(self, text: str, max_keywords: int = 10) -> List[str]:
         """
         Extract keywords from text using available NLP tools.
         """
         if not text:
             return []
-        
+
         # Clean text
         text = self._clean_text(text)
-        
+
         if NLTK_AVAILABLE:
             return self._extract_keywords_nltk(text, max_keywords)
         else:
             return self._extract_keywords_basic(text, max_keywords)
-    
+
     def _clean_text(self, text: str) -> str:
         """Clean and normalize text."""
         # Remove HTML tags
@@ -222,38 +226,38 @@ class EnhancedSEOEngine:
         # Remove special characters but keep alphanumeric and spaces
         text = re.sub(r'[^a-zA-Z0-9\\s]', ' ', text)
         return text.lower().strip()
-    
+
     def _extract_keywords_nltk(self, text: str, max_keywords: int) -> List[str]:
         """Extract keywords using NLTK."""
         try:
             # Tokenize
             tokens = word_tokenize(text)
-            
+
             # Remove stop words and short words
             tokens = [
-                token for token in tokens 
+                token for token in tokens
                 if token.lower() not in self.stop_words and len(token) > 2
             ]
-            
+
             # Lemmatize
             if self.lemmatizer:
                 tokens = [self.lemmatizer.lemmatize(token) for token in tokens]
-            
+
             # Count frequency
             word_freq = Counter(tokens)
-            
+
             # Return most common
             return [word for word, _ in word_freq.most_common(max_keywords)]
-            
+
         except Exception as e:
             logger.warning(f"NLTK keyword extraction failed: {e}")
             return self._extract_keywords_basic(text, max_keywords)
-    
+
     def _extract_keywords_basic(self, text: str, max_keywords: int) -> List[str]:
         """Basic keyword extraction without external libraries."""
         # Split into words
         words = text.split()
-        
+
         # Filter words
         words = [
             word for word in words
@@ -263,89 +267,89 @@ class EnhancedSEOEngine:
                 word.isalpha()
             )
         ]
-        
+
         # Count frequency
         word_freq = Counter(words)
-        
+
         # Return most common
         return [word for word, _ in word_freq.most_common(max_keywords)]
-    
+
     def generate_seo_title(self, job_title: str, department: str = "", year: str = "") -> str:
         """
         Generate SEO-optimized title.
         """
         if not year:
             year = str(datetime.now().year)
-        
+
         # Extract key terms
         keywords = self.extract_keywords(job_title, 3)
-        
+
         # Build title components
         title_parts = []
-        
+
         # Add main job title (truncated)
         main_title = job_title[:40] if len(job_title) > 40 else job_title
         title_parts.append(main_title)
-        
+
         # Add year if not already present
         if year not in job_title:
             title_parts.append(year)
-        
+
         # Add department if provided and space allows
         if department and len(' '.join(title_parts)) < 45:
             title_parts.insert(-1, department)
-        
+
         # Join and add suffix
         title = ' '.join(title_parts)
         title += " - Apply Online | SarkariBot"
-        
+
         # Ensure title is within 60 characters limit
         if len(title) > 60:
             title = title[:57] + "..."
-        
+
         return title
-    
-    def generate_meta_description(self, job_title: str, total_posts: int = 0, 
+
+    def generate_meta_description(self, job_title: str, total_posts: int = 0,
                                  last_date: str = "", department: str = "") -> str:
         """
         Generate SEO-optimized meta description.
         """
         # Extract key terms
         keywords = self.extract_keywords(job_title, 2)
-        
+
         # Build description
         desc_parts = []
-        
+
         # Add action phrase
         desc_parts.append("Apply for")
-        
+
         # Add job title (shortened)
         short_title = job_title[:30] if len(job_title) > 30 else job_title
         desc_parts.append(short_title)
-        
+
         # Add posts info
         if total_posts > 0:
             desc_parts.append(f"({total_posts:,} posts)")
-        
+
         # Add department
         if department:
             desc_parts.append(f"in {department}")
-        
+
         # Add deadline
         if last_date:
             desc_parts.append(f"Last date: {last_date}")
-        
+
         # Add call to action
         desc_parts.append("Apply online now!")
-        
+
         description = ' '.join(desc_parts)
-        
+
         # Ensure description is within 160 characters
         if len(description) > 160:
             description = description[:157] + "..."
-        
+
         return description
-    
+
     def generate_structured_data(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate JSON-LD structured data for job posting.
@@ -382,47 +386,47 @@ class EnhancedSEOEngine:
                 }
             }
         }
-        
+
         # Add qualification requirements
         if job_data.get('qualification'):
             structured_data["qualifications"] = job_data['qualification']
-        
+
         # Add application URL
         if job_data.get('application_link'):
             structured_data["url"] = job_data['application_link']
-        
+
         return structured_data
-    
+
     def optimize_content(self, content: str) -> str:
         """
         Optimize content for SEO.
         """
         if not content:
             return content
-        
+
         # Extract keywords
         keywords = self.extract_keywords(content, 5)
-        
+
         # Basic content optimization
         # Add keyword density checking and optimization here
-        
+
         return content
 
 # Global instance
 seo_engine = EnhancedSEOEngine()
 '''
-        
+
         # Write enhanced SEO engine
         enhanced_seo_file = self.backend_dir / "apps" / "seo" / "enhanced_engine.py"
         with open(enhanced_seo_file, 'w') as f:
             f.write(enhanced_seo_code)
-        
+
         logger.info("✓ Enhanced SEO engine created")
-    
+
     def fix_frontend_api_integration(self):
         """Fix frontend API integration issues"""
         logger.info("=== Fixing Frontend API Integration ===")
-        
+
         # Create API configuration file
         api_config = {
             "apiUrl": "http://127.0.0.1:8000/api/v1",
@@ -441,13 +445,13 @@ seo_engine = EnhancedSEOEngine()
                 "ttl": 300000
             }
         }
-        
+
         api_config_file = self.frontend_dir / "src" / "config" / "api.json"
         api_config_file.parent.mkdir(exist_ok=True)
-        
+
         with open(api_config_file, 'w') as f:
             json.dump(api_config, f, indent=2)
-        
+
         # Create API service utility
         api_service_code = '''/**
  * API Service for SarkariBot Frontend
@@ -461,7 +465,7 @@ class ApiService {
   constructor() {
     this.baseURL = apiConfig.apiUrl;
     this.endpoints = apiConfig.endpoints;
-    
+
     // Create axios instance
     this.client = axios.create({
       baseURL: this.baseURL,
@@ -471,7 +475,7 @@ class ApiService {
         'Accept': 'application/json',
       },
     });
-    
+
     // Add response interceptor for error handling
     this.client.interceptors.response.use(
       (response) => response,
@@ -481,7 +485,7 @@ class ApiService {
       }
     );
   }
-  
+
   handleError(error) {
     if (error.response) {
       // Server responded with error status
@@ -506,7 +510,7 @@ class ApiService {
       };
     }
   }
-  
+
   async getJobs(params = {}) {
     try {
       const response = await this.client.get(this.endpoints.jobs, { params });
@@ -515,7 +519,7 @@ class ApiService {
       throw error;
     }
   }
-  
+
   async getJobById(id) {
     try {
       const response = await this.client.get(`${this.endpoints.jobs}${id}/`);
@@ -524,7 +528,7 @@ class ApiService {
       throw error;
     }
   }
-  
+
   async getCategories() {
     try {
       const response = await this.client.get(this.endpoints.categories);
@@ -533,7 +537,7 @@ class ApiService {
       throw error;
     }
   }
-  
+
   async getStats() {
     try {
       const response = await this.client.get(this.endpoints.stats);
@@ -542,7 +546,7 @@ class ApiService {
       throw error;
     }
   }
-  
+
   async searchJobs(query, params = {}) {
     try {
       const searchParams = { search: query, ...params };
@@ -556,19 +560,19 @@ class ApiService {
 
 export default new ApiService();
 '''
-        
+
         api_service_file = self.frontend_dir / "src" / "services" / "apiService.js"
         api_service_file.parent.mkdir(exist_ok=True)
-        
+
         with open(api_service_file, 'w') as f:
             f.write(api_service_code)
-        
+
         logger.info("✓ Frontend API integration fixed")
-    
+
     def create_development_scripts(self):
         """Create development scripts for easy management"""
         logger.info("=== Creating Development Scripts ===")
-        
+
         # Backend start script
         backend_start_script = f'''#!/bin/bash
 # SarkariBot Backend Development Server
@@ -590,15 +594,15 @@ python create_sample_data.py
 echo "Starting Django server on http://127.0.0.1:8000"
 python manage.py runserver 8000 --settings=config.settings_dev
 '''
-        
+
         backend_script_file = self.base_dir.parent / "scripts" / "start_backend.sh"
         backend_script_file.parent.mkdir(exist_ok=True)
-        
+
         with open(backend_script_file, 'w') as f:
             f.write(backend_start_script)
-        
+
         backend_script_file.chmod(0o755)
-        
+
         # Frontend start script
         frontend_start_script = f'''#!/bin/bash
 # SarkariBot Frontend Development Server
@@ -616,14 +620,14 @@ npm run build
 echo "Starting frontend server on http://localhost:3000"
 npx serve -s build -p 3000
 '''
-        
+
         frontend_script_file = self.base_dir.parent / "scripts" / "start_frontend.sh"
-        
+
         with open(frontend_script_file, 'w') as f:
             f.write(frontend_start_script)
-        
+
         frontend_script_file.chmod(0o755)
-        
+
         # Full stack start script
         fullstack_script = '''#!/bin/bash
 # SarkariBot Full Stack Development
@@ -653,20 +657,20 @@ echo "Press Ctrl+C to stop all services"
 trap "kill $BACKEND_PID $FRONTEND_PID; exit" INT
 wait
 '''
-        
+
         fullstack_script_file = self.base_dir.parent / "scripts" / "start_fullstack.sh"
-        
+
         with open(fullstack_script_file, 'w') as f:
             f.write(fullstack_script)
-        
+
         fullstack_script_file.chmod(0o755)
-        
+
         logger.info("✓ Development scripts created")
-    
+
     def create_production_config(self):
         """Create production-ready configuration"""
         logger.info("=== Creating Production Configuration ===")
-        
+
         # Production settings
         prod_settings = '''"""
 Production settings for SarkariBot.
@@ -811,13 +815,13 @@ SITE_NAME = 'SarkariBot'
 SITE_DOMAIN = 'sarkaribot.com'
 SITE_URL = f'https://{SITE_DOMAIN}'
 '''
-        
+
         prod_settings_file = self.backend_dir / "config" / "settings" / "production.py"
         prod_settings_file.parent.mkdir(exist_ok=True)
-        
+
         with open(prod_settings_file, 'w') as f:
             f.write(prod_settings)
-        
+
         # Docker production configuration
         docker_prod_compose = '''version: '3.8'
 
@@ -844,7 +848,7 @@ services:
       - redis_data:/data
 
   web:
-    build: 
+    build:
       context: .
       dockerfile: docker/Dockerfile.prod
     ports:
@@ -863,7 +867,7 @@ services:
       - ./logs:/var/log/sarkaribot
 
   celery:
-    build: 
+    build:
       context: .
       dockerfile: docker/Dockerfile.prod
     command: celery -A config worker -l info
@@ -877,7 +881,7 @@ services:
     restart: always
 
   celery-beat:
-    build: 
+    build:
       context: .
       dockerfile: docker/Dockerfile.prod
     command: celery -A config beat -l info
@@ -906,18 +910,18 @@ volumes:
   postgres_data:
   redis_data:
 '''
-        
+
         docker_prod_file = self.base_dir.parent / "docker-compose.prod.yml"
-        
+
         with open(docker_prod_file, 'w') as f:
             f.write(docker_prod_compose)
-        
+
         logger.info("✓ Production configuration created")
-    
+
     def create_testing_framework(self):
         """Create comprehensive testing framework"""
         logger.info("=== Creating Testing Framework ===")
-        
+
         # API testing script
         api_test_script = '''#!/usr/bin/env python3
 """
@@ -939,14 +943,14 @@ class SarkariBotAPITester:
             'Accept': 'application/json',
             'User-Agent': 'SarkariBot-API-Tester/1.0'
         })
-    
+
     def test_endpoint(self, endpoint, expected_status=200):
         """Test a single API endpoint"""
         url = f"{self.api_url}{endpoint}"
         try:
             print(f"Testing: {url}")
             response = self.session.get(url, timeout=10)
-            
+
             if response.status_code == expected_status:
                 print(f"  ✓ Status: {response.status_code}")
                 if response.headers.get('content-type', '').startswith('application/json'):
@@ -958,20 +962,20 @@ class SarkariBotAPITester:
             else:
                 print(f"  ✗ Status: {response.status_code} (expected {expected_status})")
                 return False
-                
+
         except requests.exceptions.RequestException as e:
             print(f"  ✗ Request failed: {e}")
             return False
         except json.JSONDecodeError as e:
             print(f"  ✗ JSON decode failed: {e}")
             return False
-    
+
     def run_comprehensive_tests(self):
         """Run all API tests"""
         print(f"Starting SarkariBot API Tests at {datetime.now()}")
         print(f"Base URL: {self.base_url}")
         print("-" * 50)
-        
+
         tests = [
             ("/jobs/", "Jobs listing"),
             ("/categories/", "Categories listing"),
@@ -980,18 +984,18 @@ class SarkariBotAPITester:
             ("/jobs/recent/", "Recent jobs"),
             ("/sources/", "Government sources")
         ]
-        
+
         passed = 0
         total = len(tests)
-        
+
         for endpoint, description in tests:
             print(f"\\n{description}:")
             if self.test_endpoint(endpoint):
                 passed += 1
-        
+
         print("\\n" + "=" * 50)
         print(f"Test Results: {passed}/{total} passed ({passed/total*100:.1f}%)")
-        
+
         if passed == total:
             print("🎉 All tests passed!")
             return True
@@ -1004,30 +1008,30 @@ if __name__ == "__main__":
     success = tester.run_comprehensive_tests()
     sys.exit(0 if success else 1)
 '''
-        
+
         api_test_file = self.base_dir.parent / "scripts" / "test_api_comprehensive.py"
-        
+
         with open(api_test_file, 'w') as f:
             f.write(api_test_script)
-        
+
         api_test_file.chmod(0o755)
-        
+
         logger.info("✓ Testing framework created")
-    
+
     def run_final_tests(self):
         """Run final integration tests"""
         logger.info("=== Running Final Integration Tests ===")
-        
+
         # Test Django management commands
         activate_cmd = f"source {self.venv_dir}/bin/activate"
         check_cmd = f"{activate_cmd} && python manage.py check --settings=config.settings_dev"
-        
+
         try:
             self.run_command(check_cmd, cwd=self.backend_dir)
             logger.info("✓ Django check passed")
         except Exception as e:
             logger.error(f"Django check failed: {e}")
-        
+
         # Test data creation
         try:
             data_cmd = f"{activate_cmd} && python create_sample_data.py"
@@ -1035,14 +1039,14 @@ if __name__ == "__main__":
             logger.info("✓ Sample data creation passed")
         except Exception as e:
             logger.error(f"Sample data creation failed: {e}")
-        
+
         logger.info("✓ Final tests completed")
-    
+
     def run_all_fixes(self):
         """Run all fixes in order"""
         logger.info("🚀 Starting SarkariBot Comprehensive Fix")
         logger.info("=" * 60)
-        
+
         try:
             self.install_nlp_dependencies()
             self.create_enhanced_seo_engine()
@@ -1051,7 +1055,7 @@ if __name__ == "__main__":
             self.create_production_config()
             self.create_testing_framework()
             self.run_final_tests()
-            
+
             logger.info("=" * 60)
             logger.info("🎉 All fixes completed successfully!")
             logger.info("")
@@ -1061,7 +1065,7 @@ if __name__ == "__main__":
             logger.info("3. Run tests: ./scripts/test_api_comprehensive.py")
             logger.info("4. Access: http://localhost:3000 (frontend)")
             logger.info("5. API: http://127.0.0.1:8000/api/v1/ (backend)")
-            
+
         except Exception as e:
             logger.error(f"❌ Fix failed: {e}")
             raise
