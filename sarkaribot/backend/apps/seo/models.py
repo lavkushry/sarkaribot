@@ -219,7 +219,7 @@ class KeywordTracking(TimestampedModel):
         indexes = [
             models.Index(fields=['keyword']),
             models.Index(fields=['-search_volume']),
-            models.Index(fields=['-difficulty']),
+            models.Index(fields=['-difficulty_score']),
         ]
 
     def __str__(self) -> str:
