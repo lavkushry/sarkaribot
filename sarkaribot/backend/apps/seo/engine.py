@@ -67,13 +67,12 @@ class NLPSEOEngine:
             self.nlp = spacy.load("en_core_web_sm")
             logger.info("Successfully loaded spaCy English model")
         except OSError:
-            try:
-                # Fallback to basic English model
-                self.nlp = spacy.blank("en")
-                logger.warning("Using basic spaCy model - install en_core_web_sm for better performance")
-            except Exception as e:
-                logger.error(f"Failed to initialize spaCy: {e}")
-                self.nlp = None
+            logger.warning(
+                "Could not load 'en_core_web_sm' model. "
+                "Falling back to basic keyword extraction. "
+                "For better performance, run 'python -m spacy download en_core_web_sm'"
+            )
+            self.nlp = None
 
     def generate_seo_metadata(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
         """
