@@ -16,9 +16,9 @@ from typing import Dict, Any
 
 class GovernmentSourceSerializer(serializers.ModelSerializer):
     """Serializer for government sources."""
-    
+
     stats = SerializerMethodField()
-    
+
     class Meta:
         model = GovernmentSource
         fields = [
@@ -26,7 +26,7 @@ class GovernmentSourceSerializer(serializers.ModelSerializer):
             'active', 'last_scraped', 'total_jobs_found', 'stats'
         ]
         read_only_fields = ['stats']
-    
+
     def get_stats(self, obj) -> Dict[str, Any]:
         """Get recent statistics for the source."""
         return {
@@ -39,28 +39,28 @@ class GovernmentSourceSerializer(serializers.ModelSerializer):
 
 class JobCategorySerializer(serializers.ModelSerializer):
     """Serializer for job categories."""
-    
+
     job_count = SerializerMethodField()
     latest_jobs_count = SerializerMethodField()
-    
+
     class Meta:
         model = JobCategory
         fields = [
             'id', 'name', 'slug', 'description',
             'position', 'job_count', 'latest_jobs_count'
         ]
-    
+
     def get_job_count(self, obj) -> int:
         """Get total active jobs in this category."""
         return obj.job_postings.filter(
             status__in=['announced', 'admit_card', 'answer_key', 'result']
         ).count()
-    
+
     def get_latest_jobs_count(self, obj) -> int:
         """Get jobs posted in last 7 days."""
         from datetime import timedelta
         from django.utils import timezone
-        
+
         week_ago = timezone.now() - timedelta(days=7)
         return obj.job_postings.filter(
             status__in=['announced', 'admit_card', 'answer_key', 'result'],
@@ -70,7 +70,7 @@ class JobCategorySerializer(serializers.ModelSerializer):
 
 class JobMilestoneSerializer(serializers.ModelSerializer):
     """Serializer for job milestones."""
-    
+
     class Meta:
         model = JobMilestone
         fields = [
@@ -81,13 +81,13 @@ class JobMilestoneSerializer(serializers.ModelSerializer):
 
 class JobPostingListSerializer(serializers.ModelSerializer):
     """Serializer for job posting list view (lightweight)."""
-    
+
     source_name = serializers.CharField(source='source.name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_slug = serializers.CharField(source='category.slug', read_only=True)
     days_remaining = SerializerMethodField()
     is_new = SerializerMethodField()
-    
+
     class Meta:
         model = JobPosting
         fields = [
@@ -98,81 +98,81 @@ class JobPostingListSerializer(serializers.ModelSerializer):
             'application_link', 'days_remaining', 'is_new',
             'created_at', 'updated_at'
         ]
-    
+
     def get_days_remaining(self, obj) -> int:
         """Calculate days remaining for application."""
         if not obj.application_end_date:
             return None
-        
+
         from django.utils import timezone
         today = timezone.now().date()
-        
+
         if obj.application_end_date < today:
             return 0  # Expired
-        
+
         return (obj.application_end_date - today).days
-    
+
     def get_is_new(self, obj) -> bool:
         """Check if job was posted in last 3 days."""
         from datetime import timedelta
         from django.utils import timezone
-        
+
         three_days_ago = timezone.now() - timedelta(days=3)
         return obj.created_at >= three_days_ago
 
 
 class JobPostingDetailSerializer(serializers.ModelSerializer):
     """Serializer for job posting detail view (complete data)."""
-    
+
     source = GovernmentSourceSerializer(read_only=True)
     category = JobCategorySerializer(read_only=True)
     milestones = JobMilestoneSerializer(many=True, read_only=True)
-    
+
     # SEO and metadata
     seo_metadata = SerializerMethodField()
     breadcrumbs = SerializerMethodField()
-    
+
     # Computed fields
     days_remaining = SerializerMethodField()
     is_new = SerializerMethodField()
     is_expiring_soon = SerializerMethodField()
     application_status = SerializerMethodField()
-    
+
     # Related content
     similar_jobs = SerializerMethodField()
-    
+
     class Meta:
         model = JobPosting
         fields = [
             'id', 'title', 'slug', 'description', 'source', 'category',
             'status', 'department', 'total_posts', 'qualification',
-            
+
             # Dates
             'notification_date', 'application_end_date', 'exam_date',
-            
+
             # Financial
             'application_fee', 'salary_min', 'salary_max',
-            
+
             # Age limits
             'min_age', 'max_age',
-            
+
             # Links
             'application_link', 'notification_pdf', 'source_url',
-            
+
             # SEO
             'seo_metadata', 'breadcrumbs',
-            
+
             # Computed fields
             'days_remaining', 'is_new', 'is_expiring_soon',
             'application_status',
-            
+
             # Related data
             'milestones', 'similar_jobs',
-            
+
             # Timestamps
             'created_at', 'updated_at', 'published_at'
         ]
-    
+
     def get_seo_metadata(self, obj) -> Dict[str, Any]:
         """Get SEO metadata for the job."""
         return {
@@ -184,48 +184,48 @@ class JobPostingDetailSerializer(serializers.ModelSerializer):
             'meta_tags': obj.meta_tags,
             'open_graph_tags': obj.open_graph_tags,
         }
-    
+
     def get_breadcrumbs(self, obj) -> list:
         """Get breadcrumb navigation data."""
         return obj.breadcrumbs or [
             {"name": "Home", "url": "/"},
             {"name": "Government Jobs", "url": "/jobs/"},
-            {"name": obj.category.name if obj.category else "Latest Jobs", 
+            {"name": obj.category.name if obj.category else "Latest Jobs",
              "url": f"/jobs/category/{obj.category.slug}/" if obj.category else "/jobs/"},
             {"name": obj.title[:50] + "..." if len(obj.title) > 50 else obj.title,
              "url": f"/jobs/{obj.slug}"}
         ]
-    
+
     def get_days_remaining(self, obj) -> int:
         """Calculate days remaining for application."""
         if not obj.application_end_date:
             return None
-        
+
         from django.utils import timezone
         today = timezone.now().date()
-        
+
         if obj.application_end_date < today:
             return 0  # Expired
-        
+
         return (obj.application_end_date - today).days
-    
+
     def get_is_new(self, obj) -> bool:
         """Check if job was posted in last 3 days."""
         from datetime import timedelta
         from django.utils import timezone
-        
+
         three_days_ago = timezone.now() - timedelta(days=3)
         return obj.created_at >= three_days_ago
-    
+
     def get_is_expiring_soon(self, obj) -> bool:
         """Check if application deadline is within 7 days."""
         days_remaining = self.get_days_remaining(obj)
         return days_remaining is not None and 0 < days_remaining <= 7
-    
+
     def get_application_status(self, obj) -> str:
         """Get human-readable application status."""
         days_remaining = self.get_days_remaining(obj)
-        
+
         if days_remaining is None:
             return "No deadline specified"
         elif days_remaining == 0:
@@ -236,20 +236,20 @@ class JobPostingDetailSerializer(serializers.ModelSerializer):
             return f"Closing in {days_remaining} days"
         else:
             return f"{days_remaining} days remaining"
-    
+
     def get_similar_jobs(self, obj):
         """Get similar job postings."""
         similar_queryset = JobPosting.objects.filter(
             category=obj.category,
             status__in=['announced', 'admit_card', 'answer_key', 'result']
         ).exclude(id=obj.id).order_by('-created_at')[:5]
-        
+
         return JobPostingListSerializer(similar_queryset, many=True).data
 
 
 class JobSearchSerializer(serializers.Serializer):
     """Serializer for job search parameters."""
-    
+
     q = serializers.CharField(required=False, help_text="Search query")
     category = serializers.CharField(required=False, help_text="Category slug")
     source = serializers.CharField(required=False, help_text="Source name")
@@ -260,19 +260,19 @@ class JobSearchSerializer(serializers.Serializer):
     )
     # location = serializers.CharField(required=False, help_text="Location/State")
     qualification = serializers.CharField(required=False, help_text="Qualification level")
-    
+
     # Date filters
     posted_after = serializers.DateField(required=False, help_text="Posted after date")
     posted_before = serializers.DateField(required=False, help_text="Posted before date")
     deadline_after = serializers.DateField(required=False, help_text="Deadline after date")
     deadline_before = serializers.DateField(required=False, help_text="Deadline before date")
-    
+
     # Numeric filters
     min_posts = serializers.IntegerField(required=False, help_text="Minimum number of posts")
     max_posts = serializers.IntegerField(required=False, help_text="Maximum number of posts")
     min_age = serializers.IntegerField(required=False, help_text="Minimum age limit")
     max_age = serializers.IntegerField(required=False, help_text="Maximum age limit")
-    
+
     # Sorting
     ordering = serializers.ChoiceField(
         choices=[
@@ -285,13 +285,13 @@ class JobSearchSerializer(serializers.Serializer):
         required=False,
         help_text="Sort order"
     )
-    
+
     # Pagination
     page = serializers.IntegerField(default=1, min_value=1, required=False)
     page_size = serializers.IntegerField(
-        default=20, 
-        min_value=1, 
-        max_value=100, 
+        default=20,
+        min_value=1,
+        max_value=100,
         required=False,
         help_text="Number of results per page"
     )
@@ -299,10 +299,10 @@ class JobSearchSerializer(serializers.Serializer):
 
 class ScrapeLogSerializer(serializers.ModelSerializer):
     """Serializer for scrape logs."""
-    
+
     source_name = serializers.CharField(source='source.name', read_only=True)
     duration = SerializerMethodField()
-    
+
     class Meta:
         model = ScrapeLog
         fields = [
@@ -312,17 +312,22 @@ class ScrapeLogSerializer(serializers.ModelSerializer):
             'jobs_updated', 'jobs_skipped', 'error_message',
             'duration'
         ]
-    
+
     def get_duration(self, obj) -> float:
         """Calculate scraping duration in seconds."""
-        if obj.duration_seconds:
-            return float(obj.duration_seconds)
+        try:
+            if hasattr(obj, 'duration_seconds') and obj.duration_seconds:
+                return float(obj.duration_seconds)
+            elif isinstance(obj, dict) and 'duration_seconds' in obj and obj['duration_seconds']:
+                return float(obj['duration_seconds'])
+        except (ValueError, TypeError, AttributeError):
+            pass
         return 0.0
 
 
 class StatsSerializer(serializers.Serializer):
     """Serializer for general statistics."""
-    
+
     total_jobs = serializers.IntegerField()
     active_jobs = serializers.IntegerField()
     new_jobs_today = serializers.IntegerField()
@@ -336,12 +341,12 @@ class StatsSerializer(serializers.Serializer):
 
 class ContactFormSerializer(serializers.Serializer):
     """Serializer for contact form submissions."""
-    
+
     name = serializers.CharField(max_length=100)
     email = serializers.EmailField()
     subject = serializers.CharField(max_length=200)
     message = serializers.CharField()
-    
+
     def validate_message(self, value):
         """Validate message content."""
         if len(value.strip()) < 10:
@@ -353,7 +358,7 @@ class ContactFormSerializer(serializers.Serializer):
 
 class NewsletterSubscriptionSerializer(serializers.Serializer):
     """Serializer for newsletter subscriptions."""
-    
+
     email = serializers.EmailField()
     categories = serializers.ListField(
         child=serializers.CharField(),
@@ -368,7 +373,7 @@ class NewsletterSubscriptionSerializer(serializers.Serializer):
         ],
         default='weekly'
     )
-    
+
     def validate_email(self, value):
         """Validate email is not already subscribed."""
         # You would check against a newsletter subscription model
@@ -377,7 +382,7 @@ class NewsletterSubscriptionSerializer(serializers.Serializer):
 
 class JobAlertSerializer(serializers.Serializer):
     """Serializer for job alert subscriptions."""
-    
+
     email = serializers.EmailField()
     keywords = serializers.ListField(
         child=serializers.CharField(),
@@ -403,30 +408,30 @@ class JobAlertSerializer(serializers.Serializer):
         ],
         default='daily'
     )
-    
+
     def validate_keywords(self, value):
         """Validate keywords list."""
         if not value:
             raise serializers.ValidationError("At least one keyword is required.")
-        
+
         # Clean and validate keywords
         cleaned_keywords = []
         for keyword in value:
             keyword = keyword.strip()
             if len(keyword) >= 3:
                 cleaned_keywords.append(keyword)
-        
+
         if not cleaned_keywords:
             raise serializers.ValidationError(
                 "Keywords must be at least 3 characters long."
             )
-        
+
         return cleaned_keywords
 
 
 class ErrorResponseSerializer(serializers.Serializer):
     """Serializer for API error responses."""
-    
+
     error = serializers.CharField()
     message = serializers.CharField()
     details = serializers.DictField(required=False)
@@ -435,7 +440,7 @@ class ErrorResponseSerializer(serializers.Serializer):
 
 class SuccessResponseSerializer(serializers.Serializer):
     """Serializer for API success responses."""
-    
+
     success = serializers.BooleanField(default=True)
     message = serializers.CharField()
     data = serializers.DictField(required=False)
