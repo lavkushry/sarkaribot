@@ -18,23 +18,23 @@ logger = logging.getLogger(__name__)
 def generate_seo_metadata(self, job_posting_id: int, force_update: bool = False):
     """
     Generate SEO metadata for a single job posting.
-    
+
     Args:
         job_posting_id: ID of the job posting
         force_update: Whether to force update existing metadata
-        
+
     Returns:
         Dict with generation results
     """
     from apps.jobs.models import JobPosting
-    from apps.seo.engine import seo_engine
-    
+    from apps.seo.engine import NLPSEOEngine
+
     try:
         # Get the job posting
         job_posting = JobPosting.objects.get(id=job_posting_id)
-        
+
         # Check if metadata already exists and force_update is False
-        if (job_posting.seo_title and job_posting.seo_description and 
+        if (job_posting.seo_title and job_posting.seo_description and
             job_posting.keywords and not force_update):
             logger.info(f"SEO metadata already exists for job {job_posting_id}, skipping")
             return {
@@ -43,13 +43,12 @@ def generate_seo_metadata(self, job_posting_id: int, force_update: bool = False)
                 'action': 'skipped',
                 'reason': 'metadata_exists'
             }
-        
-        # Initialize SEO engine - using the global instance
-        # seo_engine is already initialized
-        
+
+        # Initialize SEO engine
+        seo_engine = NLPSEOEngine()
+
         # Prepare job data for SEO generation
         job_data = {
-            'id': job_posting.id,
             'title': job_posting.title,
             'description': job_posting.description,
             'department': job_posting.department,
@@ -62,7 +61,6 @@ def generate_seo_metadata(self, job_posting_id: int, force_update: bool = False)
             'salary_max': job_posting.salary_max,
             'min_age': job_posting.min_age,
             'max_age': job_posting.max_age,
-            'location': job_posting.location,
             'source_url': job_posting.source_url,
             'application_link': job_posting.application_link,
             'slug': job_posting.slug,
@@ -74,30 +72,23 @@ def generate_seo_metadata(self, job_posting_id: int, force_update: bool = False)
                 'base_url': job_posting.source.base_url if job_posting.source else '',
             }
         }
-        
+
         # Generate SEO metadata
         logger.info(f"Generating SEO metadata for job: {job_posting.title}")
         seo_metadata = seo_engine.generate_seo_metadata(job_data)
-        
+
         # Update job posting with SEO metadata
         job_posting.seo_title = seo_metadata.get('seo_title', '')
         job_posting.seo_description = seo_metadata.get('seo_description', '')
         job_posting.keywords = ', '.join(seo_metadata.get('keywords', []))
         job_posting.structured_data = seo_metadata.get('structured_data', {})
-        job_posting.meta_tags = seo_metadata.get('meta_tags', {})
-        job_posting.open_graph_tags = seo_metadata.get('open_graph_tags', {})
-        job_posting.canonical_url = seo_metadata.get('canonical_url', '')
-        job_posting.breadcrumbs = seo_metadata.get('breadcrumbs', [])
-        job_posting.seo_updated_at = timezone.now()
-        
+
         job_posting.save(update_fields=[
             'seo_title', 'seo_description', 'keywords', 'structured_data',
-            'meta_tags', 'open_graph_tags', 'canonical_url', 'breadcrumbs',
-            'seo_updated_at'
         ])
-        
+
         logger.info(f"SEO metadata generated successfully for job {job_posting_id}")
-        
+
         return {
             'success': True,
             'job_id': job_posting_id,
@@ -107,7 +98,7 @@ def generate_seo_metadata(self, job_posting_id: int, force_update: bool = False)
             'keywords_count': len(seo_metadata.get('keywords', [])),
             'has_structured_data': bool(seo_metadata.get('structured_data')),
         }
-        
+
     except JobPosting.DoesNotExist:
         logger.error(f"Job posting {job_posting_id} not found")
         return {
@@ -115,10 +106,10 @@ def generate_seo_metadata(self, job_posting_id: int, force_update: bool = False)
             'job_id': job_posting_id,
             'error': 'job_not_found'
         }
-        
+
     except Exception as exc:
         logger.error(f"SEO metadata generation failed for job {job_posting_id}: {exc}")
-        
+
         if self.request.retries < self.max_retries:
             raise self.retry(countdown=60 * (self.request.retries + 1))
         else:
@@ -129,24 +120,25 @@ def generate_seo_metadata(self, job_posting_id: int, force_update: bool = False)
             }
 
 
-@shared_task(bind=True)
-def bulk_generate_seo_metadata(self, job_ids: List[int] = None, category_slug: str = None, 
-                              days_back: int = None, force_update: bool = False):
+@shared_task
+def bulk_generate_seo_metadata(job_ids: Optional[List[int]] = None, category_slug: Optional[str] = None,
+                              days_back: Optional[int] = None, force_update: bool = False):
     """
     Generate SEO metadata for multiple job postings.
-    
+
     Args:
         job_ids: List of specific job IDs to process
         category_slug: Process jobs from specific category
         days_back: Process jobs from last N days
         force_update: Whether to force update existing metadata
-        
+
     Returns:
         Dict with bulk processing results
     """
     from apps.jobs.models import JobPosting, JobCategory
     from datetime import timedelta
-    
+    from django.db import models
+
     try:
         # Build queryset based on parameters
         if job_ids:
@@ -160,18 +152,18 @@ def bulk_generate_seo_metadata(self, job_ids: List[int] = None, category_slug: s
         else:
             # Process jobs without SEO metadata
             queryset = JobPosting.objects.filter(
-                models.Q(seo_title__isnull=True) | 
+                models.Q(seo_title__isnull=True) |
                 models.Q(seo_title='') |
                 models.Q(seo_description__isnull=True) |
                 models.Q(seo_description='')
             )
-        
+
         # Filter active jobs only
         queryset = queryset.filter(status__in=['announced', 'admit_card', 'answer_key', 'result'])
-        
+
         total_jobs = queryset.count()
         logger.info(f"Starting bulk SEO metadata generation for {total_jobs} jobs")
-        
+
         if total_jobs == 0:
             return {
                 'success': True,
@@ -181,38 +173,38 @@ def bulk_generate_seo_metadata(self, job_ids: List[int] = None, category_slug: s
                 'failed': 0,
                 'message': 'No jobs found to process'
             }
-        
+
         # Process jobs in batches to avoid memory issues
         batch_size = 50
         processed = 0
         skipped = 0
         failed = 0
-        
+
         for i in range(0, total_jobs, batch_size):
             batch = queryset[i:i + batch_size]
-            
+
             for job in batch:
                 try:
                     # Check if update needed
-                    if (job.seo_title and job.seo_description and 
+                    if (job.seo_title and job.seo_description and
                         job.keywords and not force_update):
                         skipped += 1
                         continue
-                    
+
                     # Generate metadata asynchronously
-                    result = generate_seo_metadata.delay(job.id, force_update)
-                    
+                    generate_seo_metadata.delay(job.pk, force_update)
+
                     # For bulk operations, we don't wait for individual results
                     # The tasks will run in background
                     processed += 1
-                    
+
                 except Exception as e:
-                    logger.error(f"Failed to queue SEO generation for job {job.id}: {e}")
+                    logger.error(f"Failed to queue SEO generation for job {job.pk}: {e}")
                     failed += 1
-        
+
         logger.info(f"Bulk SEO generation queued: {processed} processed, "
                    f"{skipped} skipped, {failed} failed")
-        
+
         return {
             'success': True,
             'total_jobs': total_jobs,
@@ -220,7 +212,7 @@ def bulk_generate_seo_metadata(self, job_ids: List[int] = None, category_slug: s
             'skipped': skipped,
             'failed': failed,
         }
-        
+
     except Exception as exc:
         logger.error(f"Bulk SEO metadata generation failed: {exc}")
         raise
