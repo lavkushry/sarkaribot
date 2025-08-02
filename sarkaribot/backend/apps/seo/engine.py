@@ -157,8 +157,9 @@ class NLPSEOEngine:
 
             # Extract important single words
             for token in doc:
-                if (token.pos_ in ['NOUN', 'ADJ'] and
-                    not token.is_stop and
+                if (token.pos_ in ['NOUN', 'ADJ'] and 
+                    not token.is_stop and 
+                    not token.is_punct and 
                     len(token.text) > 2):
                     keywords.add(token.lemma_.lower())
 
@@ -173,174 +174,124 @@ class NLPSEOEngine:
 
     def _extract_keywords_fallback(self, job_data: Dict[str, Any]) -> List[str]:
         """Fallback keyword extraction without spaCy."""
-        text = (job_data.get('title', '') + " " +
+        text = (job_data.get('title', '') + " " + 
                 job_data.get('description', '') + " " +
                 job_data.get('department', '')).lower()
 
-        # Government-specific keywords
-        govt_keywords = [
-            'government', 'sarkari', 'recruitment', 'vacancy', 'notification',
-            'application', 'exam', 'selection', 'job', 'post', 'position'
-        ]
+        # Remove punctuation and split into words
+        text = re.sub(r'[^\w\s]', '', text)
+        words = [word for word in text.split() if word not in STOP_WORDS and len(word) > 3]
 
-        # Extract words that appear in government context
-        words = re.findall(r'\b\w{3,}\b', text)
+        # Get most common words
+        word_counts = Counter(words)
+        
+        # Add government-specific keywords
+        govt_keywords = ['government', 'sarkari', 'recruitment', 'exam', 'notification', 
+                        'apply', 'eligibility', 'vacancy', 'job', 'post']
+        
         keywords = []
-
-        for word in words:
-            if (word not in STOP_WORDS and
-                len(word) > 2 and
-                word.isalpha() and
-                len(keywords) < 10):
+        for word, count in word_counts.most_common(10):
+            if word not in keywords:
                 keywords.append(word)
-
-        # Add government-specific terms if found
+        
+        # Ensure government keywords are included
         for govt_word in govt_keywords:
             if govt_word in text and govt_word not in keywords:
                 keywords.append(govt_word)
-
-        return keywords[:7]  # Return top 7 keywords
+        
+        return keywords[:self.seo_keywords_max_count]
 
     def _filter_keywords(self, keywords: List[str], job_data: Dict[str, Any]) -> List[str]:
         """Filter and rank keywords by relevance."""
-        title = job_data.get('title', '').lower()
-        description = job_data.get('description', '').lower()
-
-        # Score keywords based on occurrence and position
-        keyword_scores = {}
-        for keyword in keywords:
-            score = 0
-
-            # Higher score for title keywords
-            if keyword in title:
-                score += 5
-
-            # Score for description keywords
-            score += description.count(keyword)
-
-            # Bonus for government-related terms
-            if any(term in keyword for term in ['government', 'sarkari', 'recruitment']):
-                score += 3
-
-            keyword_scores[keyword] = score
-
-        # Sort by score and return top keywords
-        sorted_keywords = sorted(keyword_scores.items(), key=lambda x: x[1], reverse=True)
-        return [kw[0] for kw in sorted_keywords[:7]]
+        # Remove very common words
+        filtered = [k for k in keywords if k not in STOP_WORDS and len(k) > 2]
+        
+        # Sort by relevance (prioritize job-specific terms)
+        govt_terms = ['government', 'sarkari', 'recruitment', 'notification', 'exam']
+        job_specific = [k for k in filtered if any(term in k for term in govt_terms)]
+        others = [k for k in filtered if k not in job_specific]
+        
+        return job_specific + others[:self.seo_keywords_max_count]
 
     def _generate_seo_title(self, job_data: Dict[str, Any]) -> str:
         """Generate SEO-optimized title."""
-        title = job_data.get('title', '')
-        department = job_data.get('department', '')
-        year = datetime.now().year
-
-        # Start with the job title
-        seo_title = title
-
-        # Add year for freshness
-        if str(year) not in seo_title:
-            seo_title += f" {year}"
-
-        # Add department if space allows
-        if department and len(seo_title) + len(department) + 3 < self.seo_title_max_length:
-            seo_title += f" - {department}"
-
-        # Add call-to-action if space allows
-        if len(seo_title) + 12 < self.seo_title_max_length:
-            seo_title += " | Apply Now"
-
-        return seo_title
+        title = job_data.get('title', 'Government Job')
+        current_year = datetime.now().year
+        
+        # Add year if not present
+        if str(current_year) not in title:
+            title += f" {current_year}"
+        
+        # Add call-to-action
+        if len(title) < 50:
+            title += " - Apply Online"
+        
+        return title
 
     def _generate_seo_description(self, job_data: Dict[str, Any]) -> str:
         """Generate SEO-optimized meta description."""
-        title = job_data.get('title', '')
-        description = job_data.get('description', '')
-        qualification = job_data.get('qualification', '')
-        last_date = job_data.get('last_date', '')
-
-        # Start with action phrase
-        desc_parts = [f"Apply for {title}."]
-
-        # Add qualification if available
-        if qualification:
-            desc_parts.append(f"Eligibility: {qualification[:30]}.")
-
-        # Add application deadline
-        if last_date:
-            desc_parts.append(f"Last date: {last_date}.")
-
-        # Add call-to-action
-        desc_parts.append("Check details & apply online!")
-
-        seo_description = " ".join(desc_parts)
-
-        # Truncate if too long
-        if len(seo_description) > self.seo_description_max_length:
-            seo_description = seo_description[:self.seo_description_max_length-3] + "..."
-
-        return seo_description
+        title = job_data.get('title', 'Government Job')
+        department = job_data.get('department', '')
+        total_posts = job_data.get('total_posts')
+        
+        description = f"Apply for {title}"
+        
+        if total_posts:
+            description += f" - {total_posts} posts"
+        
+        if department:
+            description += f" in {department}"
+        
+        description += ". Check eligibility, last date, and apply online for this government job opportunity."
+        
+        return description
 
     def _generate_job_schema(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate schema.org JobPosting structured data."""
-        return {
+        schema = {
             "@context": "https://schema.org/",
             "@type": "JobPosting",
             "title": job_data.get('title', ''),
-            "description": job_data.get('description', job_data.get('title', '')),
-            "datePosted": job_data.get('posted_date', datetime.now().isoformat()),
+            "description": job_data.get('description', ''),
             "employmentType": "FULL_TIME",
-            "hiringOrganization": {
-                "@type": "Organization",
-                "name": job_data.get('department', 'Government of India')
-            },
-            "jobLocation": {
-                "@type": "Place",
-                "address": {
-                    "@type": "PostalAddress",
-                    "addressLocality": job_data.get('location', 'India'),
-                    "addressCountry": "IN"
-                }
-            },
-            "qualifications": job_data.get('qualification', ''),
-            "validThrough": job_data.get('last_date', '')
+            "industry": "Government",
         }
+        
+        if job_data.get('department'):
+            schema["hiringOrganization"] = {
+                "@type": "Organization",
+                "name": job_data['department']
+            }
+        
+        if job_data.get('total_posts'):
+            schema["totalJobOpenings"] = job_data['total_posts']
+        
+        if job_data.get('application_end_date'):
+            schema["validThrough"] = job_data['application_end_date']
+        
+        return schema
 
     def _generate_slug(self, title: str) -> str:
         """Generate URL-friendly slug."""
         return slugify(title)
 
     def _calculate_quality_score(self, job_data: Dict[str, Any], keywords: List[str]) -> float:
-        """Calculate SEO quality score."""
-        score = 0.0
-
-        # Title quality (25 points)
-        title = job_data.get('title', '')
-        if 10 <= len(title) <= 70:
-            score += 25
-        elif len(title) > 0:
-            score += 15
-
-        # Description quality (25 points)
-        description = job_data.get('description', '')
-        if len(description) > 50:
-            score += 25
-        elif len(description) > 0:
-            score += 15
-
-        # Keywords quality (25 points)
+        """Calculate metadata quality score."""
+        score = 50.0  # Base score
+        
+        if job_data.get('description'):
+            score += 20.0
+        
         if len(keywords) >= 5:
-            score += 25
-        elif len(keywords) >= 3:
-            score += 20
-        elif len(keywords) > 0:
-            score += 10
-
-        # Data completeness (25 points)
-        required_fields = ['title', 'description', 'department', 'qualification']
-        completed_fields = sum(1 for field in required_fields if job_data.get(field))
-        score += (completed_fields / len(required_fields)) * 25
-
-        return round(score, 1)
+            score += 15.0
+        
+        if job_data.get('department'):
+            score += 10.0
+        
+        if job_data.get('total_posts'):
+            score += 5.0
+        
+        return min(score, 100.0)
 
     def _generate_fallback_metadata(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate basic metadata when NLP processing fails."""
