@@ -5,7 +5,6 @@ Advanced Analytics and Reporting Models for SarkariBot
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.contrib.postgres.fields import JSONField
 import uuid
 
 User = get_user_model()
@@ -43,7 +42,7 @@ class PageView(models.Model):
     duration = models.IntegerField(null=True, blank=True, help_text="Time spent on page in seconds")
     
     # Additional data
-    metadata = JSONField(default=dict, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
     
     class Meta:
         ordering = ['-created_at']
@@ -103,7 +102,7 @@ class SearchQuery(models.Model):
     
     # Query information
     query = models.CharField(max_length=255, db_index=True)
-    filters_applied = JSONField(default=dict, blank=True)
+    filters_applied = models.JSONField(default=dict, blank=True)
     results_count = models.IntegerField(default=0)
     
     # User information
@@ -235,7 +234,7 @@ class PerformanceMetric(models.Model):
     # Context
     endpoint = models.CharField(max_length=255, blank=True)
     source = models.CharField(max_length=100, blank=True)
-    metadata = JSONField(default=dict, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
     
     recorded_at = models.DateTimeField(auto_now_add=True, db_index=True)
     
@@ -272,7 +271,7 @@ class DailyStats(models.Model):
     # Search metrics
     searches_performed = models.IntegerField(default=0)
     avg_search_results = models.FloatField(default=0.0)
-    top_search_terms = JSONField(default=list)
+    top_search_terms = models.JSONField(default=list)
     
     # Alert metrics
     alerts_sent = models.IntegerField(default=0)
@@ -323,7 +322,7 @@ class ConversionFunnel(models.Model):
     # Context
     job = models.ForeignKey('jobs.JobPosting', on_delete=models.SET_NULL, null=True, blank=True)
     source_stage = models.CharField(max_length=50, blank=True)  # Previous stage
-    metadata = JSONField(default=dict, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     
