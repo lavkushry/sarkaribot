@@ -1,10 +1,9 @@
 """
-AI-powered Advanced Search Models for SarkariBot
+AI-powered Advanced Search Models for SarkariBot (SQLite-compatible version)
 """
 
 from django.db import models
 from django.contrib.auth import get_user_model
-from django.contrib.postgres.fields import JSONField, ArrayField
 from django.utils import timezone
 import uuid
 
@@ -18,70 +17,32 @@ class SearchProfile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='search_profile')
     
-    # Preference vectors (would be calculated from user behavior)
-    location_preferences = ArrayField(
-        models.CharField(max_length=100),
-        default=list,
-        blank=True,
-        help_text="Preferred job locations"
-    )
+    # Preferences (stored as JSON in SQLite-compatible format)
+    location_preferences = models.JSONField(default=list, blank=True)
+    category_preferences = models.JSONField(default=list, blank=True)
+    organization_preferences = models.JSONField(default=list, blank=True)
+    education_preferences = models.JSONField(default=list, blank=True)
     
-    category_preferences = ArrayField(
-        models.CharField(max_length=100),
-        default=list,
-        blank=True,
-        help_text="Preferred job categories"
-    )
-    
-    organization_preferences = ArrayField(
-        models.CharField(max_length=200),
-        default=list,
-        blank=True,
-        help_text="Preferred organizations"
-    )
-    
-    salary_range_min = models.IntegerField(null=True, blank=True)
-    salary_range_max = models.IntegerField(null=True, blank=True)
-    
-    # Experience and education preferences
-    experience_level = models.CharField(
-        max_length=50,
-        choices=[
-            ('entry', 'Entry Level'),
-            ('mid', 'Mid Level'),
-            ('senior', 'Senior Level'),
-            ('executive', 'Executive'),
-        ],
-        blank=True
-    )
-    
-    education_preferences = ArrayField(
-        models.CharField(max_length=100),
-        default=list,
-        blank=True,
-        help_text="Preferred education requirements"
-    )
-    
-    # Behavioral data
-    search_frequency = models.FloatField(default=0.0, help_text="Searches per day")
-    avg_search_terms = models.IntegerField(default=0, help_text="Average search terms used")
+    # Search behavior analysis
+    search_frequency = models.IntegerField(default=0)
     preferred_search_time = models.TimeField(null=True, blank=True)
+    avg_session_duration = models.DurationField(null=True, blank=True)
     
-    # AI features
-    personalization_score = models.FloatField(default=0.0, help_text="How well we understand user preferences")
-    last_updated = models.DateTimeField(auto_now=True)
+    # Machine learning features
+    preference_vector = models.TextField(blank=True, help_text="Serialized preference vector")
+    learning_rate = models.FloatField(default=0.1)
+    confidence_score = models.FloatField(default=0.0)
     
-    # Settings
-    enable_ai_suggestions = models.BooleanField(default=True)
-    enable_personalization = models.BooleanField(default=True)
-    
+    # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    last_active = models.DateTimeField(null=True, blank=True)
     
     class Meta:
+        ordering = ['-updated_at']
         indexes = [
             models.Index(fields=['user']),
-            models.Index(fields=['-last_updated']),
+            models.Index(fields=['last_active']),
         ]
     
     def __str__(self):
@@ -90,358 +51,267 @@ class SearchProfile(models.Model):
 
 class SearchSuggestion(models.Model):
     """
-    AI-generated search suggestions.
+    AI-generated search suggestions based on user behavior and popular searches.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    # Base query information
-    query = models.CharField(max_length=255, db_index=True)
-    suggested_query = models.CharField(max_length=255)
+    # Suggestion content
+    suggestion_text = models.CharField(max_length=255, db_index=True)
     suggestion_type = models.CharField(
         max_length=50,
         choices=[
-            ('autocomplete', 'Autocomplete'),
-            ('spelling', 'Spelling Correction'),
-            ('synonym', 'Synonym Expansion'),
-            ('related', 'Related Terms'),
-            ('trending', 'Trending Searches'),
-            ('personalized', 'Personalized Suggestion'),
+            ('keyword', 'Keyword Suggestion'),
+            ('phrase', 'Phrase Suggestion'), 
+            ('category', 'Category Suggestion'),
+            ('location', 'Location Suggestion'),
+            ('organization', 'Organization Suggestion'),
         ],
-        db_index=True
+        default='keyword'
     )
     
-    # Context and metadata
-    context = JSONField(default=dict, blank=True, help_text="Additional context for the suggestion")
-    confidence_score = models.FloatField(default=0.0, help_text="AI confidence in suggestion")
+    # AI relevance metrics
+    relevance_score = models.FloatField(default=0.0)
+    popularity_score = models.FloatField(default=0.0)
+    freshness_score = models.FloatField(default=0.0)
+    final_score = models.FloatField(default=0.0, db_index=True)
     
-    # Usage statistics
-    times_shown = models.IntegerField(default=0)
+    # Usage tracking
+    times_suggested = models.IntegerField(default=0)
     times_clicked = models.IntegerField(default=0)
-    click_through_rate = models.FloatField(default=0.0)
+    conversion_rate = models.FloatField(default=0.0)
     
-    # Targeting
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    location = models.CharField(max_length=100, blank=True)
-    category = models.CharField(max_length=100, blank=True)
+    # Context and metadata
+    context = models.JSONField(default=dict, blank=True, help_text="Additional context for the suggestion")
     
-    # Lifecycle
+    # Lifecycle management
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
-        ordering = ['-confidence_score', '-click_through_rate']
+        ordering = ['-final_score', '-created_at']
         indexes = [
-            models.Index(fields=['query', 'suggestion_type']),
-            models.Index(fields=['is_active', '-confidence_score']),
-            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['suggestion_type', 'final_score']),
+            models.Index(fields=['is_active', 'expires_at']),
+            models.Index(fields=['created_at']),
         ]
     
     def __str__(self):
-        return f"'{self.query}' -> '{self.suggested_query}'"
+        return f"{self.suggestion_text} ({self.suggestion_type})"
 
 
 class QueryExpansion(models.Model):
     """
-    Query expansion rules and mappings.
+    Query expansion rules for improving search results.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    original_term = models.CharField(max_length=100, db_index=True)
-    expanded_terms = ArrayField(
-        models.CharField(max_length=100),
-        help_text="Terms to expand the original with"
-    )
+    # Original and expanded query
+    original_query = models.CharField(max_length=255, db_index=True)
+    expanded_terms = models.JSONField(default=list, blank=True)
     
+    # Expansion strategy
     expansion_type = models.CharField(
         max_length=50,
         choices=[
-            ('synonym', 'Synonym'),
-            ('abbreviation', 'Abbreviation'),
-            ('category', 'Category Expansion'),
-            ('location', 'Location Expansion'),
-            ('skill', 'Skill Expansion'),
+            ('synonym', 'Synonym Expansion'),
+            ('related', 'Related Terms'),
+            ('domain', 'Domain-specific Terms'),
+            ('autocorrect', 'Auto-correction'),
+            ('abbreviation', 'Abbreviation Expansion'),
         ],
-        db_index=True
+        default='synonym'
     )
     
-    # Quality metrics
+    # Performance metrics
     effectiveness_score = models.FloatField(default=0.0)
     usage_count = models.IntegerField(default=0)
+    success_rate = models.FloatField(default=0.0)
     
-    # Context
-    domain = models.CharField(max_length=100, blank=True, help_text="Domain this expansion applies to")
-    language = models.CharField(max_length=10, default='en')
-    
-    # Lifecycle
+    # Management
     is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='query_expansions'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['-effectiveness_score']
+        ordering = ['-effectiveness_score', '-created_at']
         indexes = [
-            models.Index(fields=['original_term', 'expansion_type']),
-            models.Index(fields=['is_active', '-effectiveness_score']),
+            models.Index(fields=['original_query']),
+            models.Index(fields=['expansion_type', 'is_active']),
+            models.Index(fields=['effectiveness_score']),
         ]
     
     def __str__(self):
-        return f"{self.original_term} -> {', '.join(self.expanded_terms[:3])}"
+        return f"Expansion: {self.original_query} -> {len(self.expanded_terms)} terms"
 
 
 class SemanticMapping(models.Model):
     """
-    Semantic mappings for intelligent search understanding.
+    Semantic mappings for understanding job-related concepts and relationships.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    concept = models.CharField(max_length=100, unique=True, db_index=True)
-    related_terms = ArrayField(
-        models.CharField(max_length=100),
-        help_text="Semantically related terms"
-    )
-    
-    # Semantic categories
-    category = models.CharField(
+    # Core concept
+    concept = models.CharField(max_length=255, db_index=True, unique=True)
+    concept_type = models.CharField(
         max_length=50,
         choices=[
-            ('job_title', 'Job Title'),
-            ('skill', 'Skill'),
-            ('qualification', 'Qualification'),
-            ('location', 'Location'),
-            ('organization', 'Organization'),
-            ('department', 'Department'),
-            ('benefit', 'Benefit'),
+            ('skill', 'Skill/Competency'),
+            ('qualification', 'Educational Qualification'),
+            ('department', 'Government Department'),
+            ('position', 'Job Position/Title'),
+            ('location', 'Geographic Location'),
+            ('category', 'Job Category'),
         ],
-        db_index=True
+        default='skill'
     )
     
-    # Vector embeddings (if using ML)
-    embedding_vector = JSONField(null=True, blank=True, help_text="Vector representation of the concept")
+    # Semantic relationships
+    related_terms = models.JSONField(default=list, blank=True)
     
-    # Quality and usage
+    # Vector representation for AI similarity
+    embedding_vector = models.JSONField(null=True, blank=True, help_text="Vector representation of the concept")
+    
+    # Usage and confidence metrics
     confidence_score = models.FloatField(default=0.0)
     usage_frequency = models.IntegerField(default=0)
+    last_updated = models.DateTimeField(auto_now=True)
     
     # Metadata
-    source = models.CharField(
-        max_length=50,
-        choices=[
-            ('manual', 'Manual Entry'),
-            ('ml_generated', 'ML Generated'),
-            ('user_feedback', 'User Feedback'),
-            ('data_mining', 'Data Mining'),
-        ],
-        default='manual'
-    )
-    
+    source = models.CharField(max_length=100, blank=True, help_text="Source of the mapping")
+    is_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['-confidence_score', '-usage_frequency']
+        ordering = ['concept']
         indexes = [
-            models.Index(fields=['concept']),
-            models.Index(fields=['category', '-confidence_score']),
+            models.Index(fields=['concept_type', 'confidence_score']),
+            models.Index(fields=['is_verified', 'usage_frequency']),
+            models.Index(fields=['created_at']),
         ]
     
     def __str__(self):
-        return f"{self.concept} ({self.category})"
+        return f"{self.concept} ({self.concept_type})"
 
 
 class SearchIntent(models.Model):
     """
-    Detected search intent for better result ranking.
+    Classification and understanding of user search intents.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    query_pattern = models.CharField(max_length=255, unique=True)
-    intent_type = models.CharField(
+    # Intent classification
+    intent_name = models.CharField(max_length=100, db_index=True)
+    intent_category = models.CharField(
         max_length=50,
         choices=[
-            ('job_search', 'Job Search'),
-            ('notification_search', 'Notification Search'),
-            ('result_search', 'Result Search'),
-            ('admit_card_search', 'Admit Card Search'),
-            ('syllabus_search', 'Syllabus Search'),
-            ('application_search', 'Application Search'),
-            ('eligibility_search', 'Eligibility Search'),
-            ('salary_search', 'Salary Search'),
+            ('informational', 'Informational Query'),
+            ('navigational', 'Navigational Query'),
+            ('transactional', 'Application Intent'),
+            ('comparison', 'Comparison Shopping'),
+            ('temporal', 'Time-sensitive Query'),
         ],
-        db_index=True
+        default='informational'
     )
     
-    # Intent parameters
-    parameters = JSONField(
+    # Intent parameters and configuration
+    parameters = models.JSONField(
         default=dict,
         blank=True,
-        help_text="Parameters extracted from the query"
+        help_text="Parameters for intent processing"
     )
     
-    # Ranking adjustments
-    boost_fields = ArrayField(
-        models.CharField(max_length=100),
-        default=list,
-        blank=True,
-        help_text="Fields to boost for this intent"
-    )
-    
-    filter_conditions = JSONField(
+    # Search optimization
+    boost_fields = models.JSONField(default=list, blank=True)
+    filter_conditions = models.JSONField(
         default=dict,
         blank=True,
-        help_text="Additional filters to apply"
+        help_text="Default filters for this intent"
     )
     
-    # Performance metrics
+    # Performance tracking
     accuracy_score = models.FloatField(default=0.0)
-    usage_count = models.IntegerField(default=0)
+    precision_score = models.FloatField(default=0.0)
+    recall_score = models.FloatField(default=0.0)
     
-    # Lifecycle
+    # Management
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['-accuracy_score', '-usage_count']
+        ordering = ['intent_name']
         indexes = [
-            models.Index(fields=['intent_type', 'is_active']),
-            models.Index(fields=['-accuracy_score']),
+            models.Index(fields=['intent_category', 'is_active']),
+            models.Index(fields=['accuracy_score']),
         ]
     
     def __str__(self):
-        return f"{self.query_pattern} -> {self.intent_type}"
-
-
-class PersonalizedRanking(models.Model):
-    """
-    Store personalized ranking factors for users.
-    """
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ranking_factors')
-    job = models.ForeignKey('jobs.JobPosting', on_delete=models.CASCADE)
-    
-    # Ranking factors
-    relevance_score = models.FloatField(default=0.0)
-    location_match = models.FloatField(default=0.0)
-    category_match = models.FloatField(default=0.0)
-    qualification_match = models.FloatField(default=0.0)
-    experience_match = models.FloatField(default=0.0)
-    salary_match = models.FloatField(default=0.0)
-    
-    # Behavioral factors
-    view_history_score = models.FloatField(default=0.0)
-    application_likelihood = models.FloatField(default=0.0)
-    
-    # Combined score
-    final_score = models.FloatField(default=0.0, db_index=True)
-    
-    # Metadata
-    calculated_at = models.DateTimeField(auto_now=True)
-    expires_at = models.DateTimeField()
-    
-    class Meta:
-        unique_together = ['user', 'job']
-        ordering = ['-final_score']
-        indexes = [
-            models.Index(fields=['user', '-final_score']),
-            models.Index(fields=['job', '-final_score']),
-            models.Index(fields=['-calculated_at']),
-        ]
-    
-    def __str__(self):
-        return f"Ranking for {self.user.username} - {self.job.title}"
+        return f"{self.intent_name} ({self.intent_category})"
 
 
 class SearchFeedback(models.Model):
     """
-    User feedback on search results for ML training.
+    User feedback on search results for continuous improvement.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    query = models.CharField(max_length=255)
-    job = models.ForeignKey('jobs.JobPosting', on_delete=models.CASCADE)
+    # Feedback context
+    user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='search_feedback'
+    )
+    session_id = models.CharField(max_length=255, db_index=True)
+    search_query = models.CharField(max_length=255)
+    result_position = models.IntegerField(help_text="Position of the result in search results")
     
-    # Feedback types
+    # Feedback data
     feedback_type = models.CharField(
         max_length=50,
         choices=[
-            ('relevant', 'Relevant Result'),
-            ('irrelevant', 'Irrelevant Result'),
-            ('spam', 'Spam/Duplicate'),
-            ('outdated', 'Outdated'),
-            ('wrong_category', 'Wrong Category'),
-            ('location_mismatch', 'Location Mismatch'),
-        ]
+            ('click', 'Result Clicked'),
+            ('bookmark', 'Result Bookmarked'),
+            ('apply', 'Application Started'),
+            ('irrelevant', 'Marked as Irrelevant'),
+            ('spam', 'Marked as Spam'),
+            ('outdated', 'Marked as Outdated'),
+        ],
+        default='click'
     )
     
-    # Detailed feedback
     relevance_rating = models.IntegerField(
-        choices=[(i, i) for i in range(1, 6)],
+        choices=[(i, str(i)) for i in range(1, 6)],
         null=True,
         blank=True,
         help_text="1-5 relevance rating"
     )
     
-    comments = models.TextField(blank=True)
+    # Additional context
+    dwell_time = models.DurationField(null=True, blank=True)
+    search_context = models.JSONField(default=dict, blank=True)
     
-    # Context
-    search_context = JSONField(default=dict, blank=True)
-    result_position = models.IntegerField(help_text="Position in search results")
-    
+    # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
     
     class Meta:
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['user', '-created_at']),
-            models.Index(fields=['query', 'feedback_type']),
-            models.Index(fields=['-created_at']),
+            models.Index(fields=['user', 'feedback_type']),
+            models.Index(fields=['search_query', 'relevance_rating']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['session_id']),
         ]
     
     def __str__(self):
-        return f"Feedback: {self.feedback_type} for '{self.query}'"
-
-
-class AISearchMetrics(models.Model):
-    """
-    Metrics for AI search performance tracking.
-    """
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    
-    date = models.DateField(unique=True, db_index=True)
-    
-    # Search quality metrics
-    avg_relevance_score = models.FloatField(default=0.0)
-    personalization_effectiveness = models.FloatField(default=0.0)
-    query_understanding_accuracy = models.FloatField(default=0.0)
-    
-    # Usage metrics
-    ai_suggestions_shown = models.IntegerField(default=0)
-    ai_suggestions_clicked = models.IntegerField(default=0)
-    personalized_searches = models.IntegerField(default=0)
-    intent_detection_success = models.IntegerField(default=0)
-    
-    # Performance metrics
-    avg_search_response_time = models.FloatField(default=0.0)
-    search_success_rate = models.FloatField(default=0.0)
-    zero_result_rate = models.FloatField(default=0.0)
-    
-    # Feedback metrics
-    positive_feedback_count = models.IntegerField(default=0)
-    negative_feedback_count = models.IntegerField(default=0)
-    feedback_response_rate = models.FloatField(default=0.0)
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        ordering = ['-date']
-        indexes = [
-            models.Index(fields=['-date']),
-        ]
-    
-    def __str__(self):
-        return f"AI Search Metrics for {self.date}"
+        return f"Feedback: {self.feedback_type} for '{self.search_query}'"
