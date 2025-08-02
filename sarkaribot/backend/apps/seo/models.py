@@ -47,15 +47,16 @@ class SitemapEntry(TimestampedModel):
         default=True,
         help_text="Whether to include this URL in the sitemap"
     )
-    
+
     class Meta:
         ordering = ['-priority', '-last_modified']
         indexes = [
             models.Index(fields=['is_active', '-priority']),
             models.Index(fields=['change_frequency']),
             models.Index(fields=['-last_modified']),
+            models.Index(fields=['url']),
         ]
-    
+
     def __str__(self) -> str:
         return f"{self.url} (Priority: {self.priority})"
 
@@ -84,7 +85,7 @@ class SEOMetadata(TimestampedModel):
         unique=True,
         help_text="URL path for this content"
     )
-    
+
     # SEO Fields
     title = models.CharField(
         max_length=60,
@@ -102,19 +103,19 @@ class SEOMetadata(TimestampedModel):
         blank=True,
         help_text="Canonical URL for this content"
     )
-    
+
     # Structured Data
     structured_data = models.JSONField(
         default=dict,
         help_text="JSON-LD structured data"
     )
-    
+
     # OpenGraph Data
     og_title = models.CharField(max_length=95, blank=True)
     og_description = models.CharField(max_length=300, blank=True)
     og_image = models.URLField(blank=True)
     og_type = models.CharField(max_length=50, default='website')
-    
+
     # Twitter Card Data
     twitter_card = models.CharField(
         max_length=20,
@@ -129,7 +130,7 @@ class SEOMetadata(TimestampedModel):
     twitter_title = models.CharField(max_length=70, blank=True)
     twitter_description = models.CharField(max_length=200, blank=True)
     twitter_image = models.URLField(blank=True)
-    
+
     # Performance Tracking
     generation_method = models.CharField(
         max_length=20,
@@ -148,17 +149,17 @@ class SEOMetadata(TimestampedModel):
         validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
         help_text="Content quality score (0-100)"
     )
-    
+
     class Meta:
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['content_type', 'content_id']),
             models.Index(fields=['url_path']),
-            models.Index(fields=['generation_method']),
-            models.Index(fields=['-quality_score']),
+            models.Index(fields=['title']),
+            models.Index(fields=['-updated_at']),
         ]
-        unique_together = [('content_type', 'content_id')]
-    
+        unique_together = ['content_type', 'content_id']
+
     def __str__(self) -> str:
         return f"SEO: {self.title} ({self.content_type})"
 
@@ -169,7 +170,7 @@ class KeywordTracking(TimestampedModel):
     """
     keyword = models.CharField(max_length=255, db_index=True)
     target_url = models.URLField(help_text="URL this keyword should rank for")
-    
+
     # Ranking Data
     current_position = models.PositiveIntegerField(
         null=True,
@@ -186,7 +187,7 @@ class KeywordTracking(TimestampedModel):
         blank=True,
         help_text="Best ever ranking position"
     )
-    
+
     # Performance Metrics
     search_volume = models.PositiveIntegerField(
         null=True,
@@ -201,7 +202,7 @@ class KeywordTracking(TimestampedModel):
         validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
         help_text="Keyword difficulty score (0-100)"
     )
-    
+
     # Tracking Status
     is_target_keyword = models.BooleanField(
         default=True,
@@ -212,17 +213,15 @@ class KeywordTracking(TimestampedModel):
         blank=True,
         help_text="When the ranking was last checked"
     )
-    
+
     class Meta:
-        ordering = ['current_position', '-search_volume']
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['keyword']),
-            models.Index(fields=['current_position']),
-            models.Index(fields=['is_target_keyword', 'current_position']),
-            models.Index(fields=['-last_checked']),
+            models.Index(fields=['-search_volume']),
+            models.Index(fields=['-difficulty']),
         ]
-        unique_together = [('keyword', 'target_url')]
-    
+
     def __str__(self) -> str:
         position = self.current_position or "Unranked"
         return f"{self.keyword} - Position: {position}"
@@ -243,11 +242,11 @@ class SEOAuditLog(TimestampedModel):
         ],
         help_text="Type of SEO audit performed"
     )
-    
+
     # Audit Details
     content_type = models.CharField(max_length=50, blank=True)
     content_id = models.PositiveIntegerField(null=True, blank=True)
-    
+
     # Results
     status = models.CharField(
         max_length=20,
@@ -263,7 +262,7 @@ class SEOAuditLog(TimestampedModel):
         default=dict,
         help_text="Detailed audit results"
     )
-    
+
     # Performance Metrics
     processing_time = models.DecimalField(
         max_digits=10,
@@ -276,7 +275,7 @@ class SEOAuditLog(TimestampedModel):
         default=0,
         help_text="Number of items processed"
     )
-    
+
     # User Context
     triggered_by = models.ForeignKey(
         User,
@@ -285,7 +284,7 @@ class SEOAuditLog(TimestampedModel):
         blank=True,
         help_text="User who triggered this audit"
     )
-    
+
     class Meta:
         ordering = ['-created_at']
         indexes = [
@@ -293,6 +292,6 @@ class SEOAuditLog(TimestampedModel):
             models.Index(fields=['status', '-created_at']),
             models.Index(fields=['content_type', 'content_id']),
         ]
-    
+
     def __str__(self) -> str:
         return f"{self.audit_type} - {self.status} ({self.created_at})"
