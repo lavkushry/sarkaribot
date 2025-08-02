@@ -289,6 +289,11 @@ class JobPosting(TimestampedModel):
         blank=True,
         help_text="When the job was indexed by search engines"
     )
+    seo_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the SEO metadata was last updated"
+    )
     
     class Meta:
         ordering = ['-published_at', '-created_at']
