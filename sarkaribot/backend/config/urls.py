@@ -37,11 +37,10 @@ urlpatterns = [
     path('api/v1/seo/', include('apps.seo.urls')),
     path('api/v1/core/', include('apps.core.urls')),
     
-    # Stage 4 Advanced Features (temporarily commented until properly configured)
-    # path('api/v1/analytics/', include('apps.analytics.urls')),
-    # path('api/v1/ai-search/', include('apps.ai_search.urls')),
-    # path('api/v1/monitoring/', include('apps.monitoring.urls')),
-    # path('api/v1/alerts/', include('apps.alerts.urls')),
+    # Stage 4 Advanced Features
+    path('api/v1/analytics/', include('apps.analytics.urls')),
+    path('api/v1/ai-search/', include('apps.ai_search.urls')),
+    path('api/v1/alerts/', include('apps.alerts.urls')),
     
     # Django REST Framework browsable API
     path('api-auth/', include('rest_framework.urls')),

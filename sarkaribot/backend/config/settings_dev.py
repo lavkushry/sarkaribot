@@ -29,6 +29,9 @@ INSTALLED_APPS = [
     'apps.scraping',
     'apps.seo',
     'apps.sources',
+    # 'apps.analytics',
+    # 'apps.ai_search',
+    # 'apps.alerts',
 ]
 
 # Middleware
