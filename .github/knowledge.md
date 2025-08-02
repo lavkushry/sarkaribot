@@ -211,7 +211,7 @@ Each government website has a JSON configuration defining:
 
 **State Transitions**:
 ```
-ANNOUNCED (Latest Jobs) 
+ANNOUNCED (Latest Jobs)
     ↓ (admin update)
 ADMIT_CARD (Admit Card section)
     ↓ (admin update)
@@ -281,7 +281,50 @@ ARCHIVED (removed from main display)
 - Local storage for user preferences
 - CDN caching for global performance
 
-### 7. API Design
+### 7. Content Strategy & Automation
+
+#### 7.1. Historical Data Backfilling (One-Time Task)
+
+- **Objective**: To launch the website with a comprehensive, pre-populated database of historical job postings (~5 years worth of data). This establishes immediate authority and provides a rich dataset for users.
+- **Approach**: A one-time, controlled, and large-scale data ingestion process managed via specialized tools to avoid detection and ensure data integrity.
+
+**Key Components**:
+
+- **Archive Scrapers**: The `GovernmentSource` model's `config_json` will be extended with an optional `archive_config` section. This will define the unique URL patterns and selectors for historical archive pages, which often have different layouts than the main "latest jobs" pages.
+- **Orchestration via Management Command**: A dedicated Django management command (e.g., `python manage.py backfill_source <source_name> --years=5`) will orchestrate the backfilling process. This command will generate the list of all historical URLs to scrape and dispatch Celery tasks to distribute the load, making the process resilient and parallelizable.
+- **Polite & Robust Scraping Strategy**: Scraping years of data is an aggressive action. To avoid IP bans and overloading target servers, the backfilling scrapers will employ:
+  - **Proxy Rotation**: Integration with a reliable proxy rotation service.
+  - **Conservative Rate Limiting**: A significantly slower request delay (e.g., 5-10 seconds with jitter) to mimic human behavior.
+  - **Intelligent Retries**: Leveraging Celery's exponential backoff for handling temporary network errors or HTTP 429/5xx responses.
+- **Optimized Data Ingestion Pipeline**:
+    1. **Scrape First, Process Later**: The scraping tasks will focus solely on gathering raw data and storing it in a temporary location (e.g., JSON files in an S3 bucket or a temporary database table).
+    2. **Bulk Creation & Processing**: A separate management command will process the stored raw data. It will use Django's `bulk_create` for efficient `JobPosting` insertion and then dispatch batch Celery tasks to handle the CPU-intensive SEO metadata generation via the `NLPSEOEngine`.
+
+#### 7.2. Continuous Update Agent (Ongoing Task)
+
+- **Objective**: To keep the website content perpetually up-to-date with zero manual intervention, ensuring SarkariBot is often the first to publish new jobs and updates.
+- **Approach**: An automated, resilient "agent" that continuously monitors all configured sources for both new postings and updates to existing ones.
+
+**Key Components**:
+
+- **The "Heartbeat" (Scheduled Scraping)**:
+  - **Celery Beat**: The core scheduler will be configured to run the `scrape_government_source` task for all active sources at regular, configurable intervals (e.g., every 2-6 hours).
+  - **Per-Source Frequency**: The `GovernmentSource` model will have a `scrape_frequency` field, allowing high-priority sites (like UPSC, SSC) to be checked more frequently than others.
+
+- **The "Brains" (Intelligent Change Detection)**:
+  - **Finite State Machine (FSM) Tracking**: The agent's primary intelligence lies in tracking the job lifecycle. It doesn't just look for new posts; it re-scrapes existing job pages to detect meaningful updates.
+  - **Content Hashing & State Transition**:
+        1. When a job is first scraped, a hash of its key content (title, key dates, links) is generated and stored with the `JobPosting`.
+        2. On subsequent scrapes of the same URL, a new hash is computed from the current content.
+        3. **If the hashes differ**, it signifies an update. The `JobProcessingService` then performs keyword analysis on the updated content.
+        4. **Keyword-Driven FSM**: The service looks for specific keywords (e.g., "Admit Card", "Download Hall Ticket", "Result Available", "Answer Key") within the updated page content. Based on predefined rules, if these keywords are found, the job's `status` is automatically transitioned to the next state in the FSM (e.g., from `ANNOUNCED` to `ADMIT_CARD`). A new `JobMilestone` record is also created to log this event.
+        5. **If the hashes are the same**, no database write occurs, making the process highly efficient.
+
+- **The "Immune System" (Resilience & Monitoring)**:
+  - **Comprehensive Logging**: The `ScrapeLog` model will track the `status`, `items_found`, `errors`, and performance metrics for every single scraping run.
+  - **Automated Alerting**: A daily management command will check the `ScrapeLog`. If a major source has failed its last 3 consecutive scrapes, it will trigger an email/Slack alert to an administrator. This immediately signals that the target website's layout may have changed and the scraper's selectors need to be updated in the `GovernmentSource` configuration.
+
+### 8. API Design
 
 #### RESTful Endpoint Structure
 
