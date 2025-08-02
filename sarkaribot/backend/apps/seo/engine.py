@@ -8,7 +8,7 @@ and content analysis according to Knowledge.md specifications.
 import logging
 import re
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from django.conf import settings
 from django.utils.text import slugify
 from django.utils.html import strip_tags
@@ -35,14 +35,6 @@ except ImportError:
         'examination', 'apply'
     }
 
-# Import the enhanced engine as fallback
-try:
-    from .enhanced_engine import EnhancedSEOEngine, seo_engine as enhanced_engine
-    ENHANCED_ENGINE_AVAILABLE = True
-except ImportError:
-    ENHANCED_ENGINE_AVAILABLE = False
-    enhanced_engine = None
-
 logger = logging.getLogger(__name__)
 
 
@@ -57,7 +49,6 @@ class NLPSEOEngine:
     def __init__(self):
         """Initialize the NLP engine with spaCy model."""
         self.nlp = None
-        self.enhanced_engine = enhanced_engine
         self._load_nlp_model()
 
         # SEO configuration from Knowledge.md
@@ -98,12 +89,6 @@ class NLPSEOEngine:
             ValueError: If required job data is missing
         """
         try:
-            # If spaCy is not available, use enhanced engine fallback
-            if not self.nlp and ENHANCED_ENGINE_AVAILABLE and self.enhanced_engine:
-                logger.info("Using enhanced engine fallback for SEO generation")
-                return self._generate_with_enhanced_engine(job_data)
-
-            # Continue with spaCy implementation if available
             if not job_data.get('title'):
                 raise ValueError("Job title is required for SEO metadata generation")
 
@@ -367,49 +352,10 @@ class NLPSEOEngine:
             'quality_score': 50.0
         }
 
-    def _generate_with_enhanced_engine(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate metadata using enhanced engine fallback."""
-        try:
-            if not self.enhanced_engine:
-                return self._generate_fallback_metadata(job_data)
-
-            # Generate SEO title
-            seo_title = self.enhanced_engine.generate_seo_title(
-                job_data.get('title', ''),
-                job_data.get('department', ''),
-                str(datetime.now().year)
-            )
-
-            # Generate meta description
-            seo_description = self.enhanced_engine.generate_meta_description(
-                job_data.get('title', ''),
-                job_data.get('total_posts', 0),
-                job_data.get('application_end_date', ''),
-                job_data.get('department', '')
-            )
-
-            # Extract keywords
-            keywords = self.enhanced_engine.extract_keywords(
-                f"{job_data.get('title', '')} {job_data.get('description', '')}"
-            )
-
-            # Generate structured data
-            structured_data = self.enhanced_engine.generate_structured_data(job_data)
-
-            return {
-                'seo_title': seo_title,
-                'seo_description': seo_description,
-                'keywords': keywords,
-                'structured_data': structured_data,
-                'slug': slugify(job_data.get('title', '')),
-                'canonical_url': f"/jobs/{slugify(job_data.get('title', ''))}/",
-                'generation_method': 'enhanced_engine',
-                'quality_score': 85.0
-            }
-        except Exception as e:
-            logger.error(f"Enhanced engine fallback failed: {e}")
-            return self._generate_fallback_metadata(job_data)
-
 
 # Global instance for use throughout the application
+# This ensures consistent class naming across the codebase
 seo_engine = NLPSEOEngine()
+
+# Legacy alias for backward compatibility
+SEOEngine = NLPSEOEngine
