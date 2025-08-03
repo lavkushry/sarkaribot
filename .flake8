@@ -1,0 +1,45 @@
+[flake8]
+max-line-length = 88
+max-complexity = 12
+select = E,W,F,C,B
+ignore = 
+    # E203: whitespace before ':' (conflicts with black)
+    E203,
+    # E501: line too long (handled by black)
+    E501,
+    # W503: line break before binary operator (conflicts with black)
+    W503,
+    # E722: do not use bare except (handled by bugbear B001)
+    E722
+
+exclude = 
+    .git,
+    __pycache__,
+    migrations,
+    staticfiles,
+    .venv,
+    venv,
+    .mypy_cache,
+    .pytest_cache,
+    build,
+    dist,
+    *.egg-info
+
+per-file-ignores =
+    # __init__.py files can have unused imports
+    __init__.py:F401
+    # settings files can have unused imports
+    */settings/*.py:F401
+    # test files can have unused imports and long lines
+    test_*.py:F401,E501
+    *_test.py:F401,E501
+    */tests.py:F401,E501
+    */tests/*.py:F401,E501
+
+# Django specific settings
+django-settings-module = config.settings.development
+
+# Enable specific flake8 plugins
+enable-extensions = 
+    DJ01,  # django-specific checks
+    B,     # bugbear checks

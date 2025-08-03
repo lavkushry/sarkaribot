@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    # directories
+    \.eggs
+    | \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | migrations
+    | staticfiles
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+known_django = "django"
+known_third_party = ["rest_framework", "celery", "redis", "requests", "scrapy", "playwright", "beautifulsoup4", "lxml", "spacy", "nltk"]
+known_first_party = ["apps", "config"]
+sections = ["FUTURE", "STDLIB", "DJANGO", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+skip_glob = ["*/migrations/*", "*/staticfiles/*", "*/node_modules/*"]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+plugins = ["mypy_django_plugin.main"]
+
+[[tool.mypy.overrides]]
+module = "*.migrations.*"
+ignore_errors = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.development"
+
+[tool.coverage.run]
+source = '.'
+omit = [
+    '*/migrations/*',
+    '*/staticfiles/*',
+    '*/tests/*',
+    '*/venv/*',
+    'manage.py',
+    'config/wsgi.py',
+    'config/asgi.py',
+    '*/settings/*',
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    'pragma: no cover',
+    'def __repr__',
+    'raise AssertionError',
+    'raise NotImplementedError',
+    'if __name__ == .__main__.:',
+    'class .*\bProtocol\):',
+    '@(abc\.)?abstractmethod',
+]
