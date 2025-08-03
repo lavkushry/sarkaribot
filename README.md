@@ -3,6 +3,9 @@
 [![Django](https://img.shields.io/badge/Django-5.2+-green.svg)](https://djangoproject.com/)
 [![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue.svg)](https://typescriptlang.org/)
+[![Test Coverage](https://img.shields.io/codecov/c/github/lavkushry/sarkaribot)](https://codecov.io/gh/lavkushry/sarkaribot)
+[![Backend Coverage](https://img.shields.io/badge/Backend%20Coverage-≥85%25-green.svg)](https://codecov.io/gh/lavkushry/sarkaribot)
+[![Frontend Coverage](https://img.shields.io/badge/Frontend%20Coverage-≥80%25-green.svg)](https://codecov.io/gh/lavkushry/sarkaribot)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen.svg)]()
 
@@ -244,6 +247,59 @@ python manage.py enable_scraping SSC
 # Test scraping configuration
 python manage.py test_scraper SSC
 ```
+
+## 🧪 Testing & Quality Assurance
+
+SarkariBot maintains comprehensive test coverage to ensure reliability and prevent regressions:
+
+### Coverage Targets
+- **Backend**: ≥85% test coverage
+- **Frontend**: ≥80% test coverage  
+- **Critical Paths**: ≥95% test coverage
+
+### Running Tests
+
+```bash
+# Run all tests with coverage
+./scripts/run_tests.sh
+
+# Quick development tests
+./scripts/quick_test.py
+
+# Backend tests only
+cd sarkaribot/backend
+pytest --cov=apps --cov-report=html
+
+# Frontend tests only
+cd sarkaribot/frontend
+npm run test:coverage
+
+# Critical path tests (95% coverage requirement)
+pytest tests/test_critical_paths.py -m critical
+```
+
+### Test Infrastructure
+
+**Backend Testing:**
+- **pytest** with Django integration
+- **factory-boy** for realistic test data
+- **unittest.mock** for service isolation
+- **pytest-cov** for coverage reporting
+
+**Frontend Testing:**
+- **Jest** with React Testing Library
+- **MSW** for API mocking
+- Built-in coverage reporting
+
+### Continuous Integration
+
+GitHub Actions automatically:
+- Runs full test suite on every push/PR
+- Generates coverage reports
+- Uploads results to Codecov
+- Fails builds below coverage thresholds
+
+See [TESTING.md](docs/TESTING.md) for detailed testing documentation.
 
 ## 🔌 API Documentation
 
