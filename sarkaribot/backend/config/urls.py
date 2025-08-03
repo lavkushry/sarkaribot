@@ -28,8 +28,8 @@ urlpatterns = [
     # API Documentation (commented out temporarily)
     # path('api/docs/', include_docs_urls(title='SarkariBot API', description='Complete API for SarkariBot')),
     
-    # API Routes - Main job functionality
-    path('', include('apps.jobs.urls')),
+    # API Routes - Main job functionality (keep existing API structure)
+    path('api/v1/', include('apps.jobs.urls')),
     
     # Additional API modules
     path('api/v1/sources/', include('apps.sources.urls')),
@@ -44,6 +44,11 @@ urlpatterns = [
     
     # Django REST Framework browsable API
     path('api-auth/', include('rest_framework.urls')),
+    
+    # SEO-optimized URLs following Knowledge.md specification: /{category}/{job-slug}/
+    # These URLs provide clean, SEO-friendly structure for job pages
+    # Examples: /latest-jobs/, /latest-jobs/ssc-cgl-2025-notification/
+    path('', include('apps.jobs.seo_urls')),
     
     # Sitemap (will be activated later)
     # path('sitemap.xml', sitemap, {'sitemaps': sitemaps},

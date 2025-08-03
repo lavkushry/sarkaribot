@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- SEO Meta Tags -->
+    <title>{{ seo_title }}</title>
+    <meta name="description" content="{{ seo_description }}">
+    {% if keywords %}
+    <meta name="keywords" content="{{ keywords }}">
+    {% endif %}
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ canonical_url }}">
+    
+    <!-- Open Graph Tags -->
+    {% if open_graph_tags %}
+        {% for property, content in open_graph_tags.items %}
+        <meta property="og:{{ property }}" content="{{ content }}">
+        {% endfor %}
+    {% else %}
+        <meta property="og:title" content="{{ seo_title }}">
+        <meta property="og:description" content="{{ seo_description }}">
+        <meta property="og:url" content="{{ canonical_url }}">
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="SarkariBot">
+    {% endif %}
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ seo_title }}">
+    <meta name="twitter:description" content="{{ seo_description }}">
+    
+    <!-- Structured Data -->
+    {% if structured_data %}
+    <script type="application/ld+json">
+    {{ structured_data|safe }}
+    </script>
+    {% endif %}
+    
+    <!-- Basic CSS -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .breadcrumbs {
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .breadcrumbs a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .breadcrumbs a:hover {
+            text-decoration: underline;
+        }
+        .job-title {
+            color: #2c3e50;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .job-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .detail-item {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .apply-button {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .apply-button:hover {
+            background-color: #218838;
+        }
+        .related-jobs {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+        }
+        .related-job {
+            display: block;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f8f9fa;
+            text-decoration: none;
+            color: #495057;
+            border-radius: 4px;
+        }
+        .related-job:hover {
+            background-color: #e9ecef;
+        }
+        @media (max-width: 768px) {
+            .job-details {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Breadcrumbs -->
+        {% if breadcrumbs %}
+        <nav class="breadcrumbs">
+            {% for breadcrumb in breadcrumbs %}
+                {% if not forloop.last %}
+                    <a href="{{ breadcrumb.url }}">{{ breadcrumb.name }}</a> &gt; 
+                {% else %}
+                    {{ breadcrumb.name }}
+                {% endif %}
+            {% endfor %}
+        </nav>
+        {% endif %}
+        
+        <!-- Job Title -->
+        <h1 class="job-title">{{ job.title }}</h1>
+        
+        <!-- Job Details -->
+        <div class="job-details">
+            <div class="detail-item">
+                <div class="detail-label">Source:</div>
+                <div>{{ job.source.name }}</div>
+            </div>
+            
+            <div class="detail-item">
+                <div class="detail-label">Category:</div>
+                <div>{{ job.category.name }}</div>
+            </div>
+            
+            {% if job.total_posts %}
+            <div class="detail-item">
+                <div class="detail-label">Total Posts:</div>
+                <div>{{ job.total_posts }}</div>
+            </div>
+            {% endif %}
+            
+            {% if job.application_end_date %}
+            <div class="detail-item">
+                <div class="detail-label">Last Date:</div>
+                <div>{{ job.application_end_date|date:"d M Y" }}</div>
+            </div>
+            {% endif %}
+            
+            {% if job.notification_date %}
+            <div class="detail-item">
+                <div class="detail-label">Notification Date:</div>
+                <div>{{ job.notification_date|date:"d M Y" }}</div>
+            </div>
+            {% endif %}
+            
+            {% if job.min_age or job.max_age %}
+            <div class="detail-item">
+                <div class="detail-label">Age Limit:</div>
+                <div>
+                    {% if job.min_age %}{{ job.min_age }}{% endif %}
+                    {% if job.min_age and job.max_age %} - {% endif %}
+                    {% if job.max_age %}{{ job.max_age }}{% endif %}
+                    years
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Job Description -->
+        <div class="job-description">
+            <h2>Job Description</h2>
+            <p>{{ job.description|safe }}</p>
+        </div>
+        
+        <!-- Qualification -->
+        {% if job.qualification %}
+        <div class="qualification">
+            <h2>Eligibility & Qualification</h2>
+            <p>{{ job.qualification|safe }}</p>
+        </div>
+        {% endif %}
+        
+        <!-- Application Link -->
+        {% if job.application_link %}
+        <div class="application-section">
+            <a href="{{ job.application_link }}" target="_blank" class="apply-button">
+                Apply Online
+            </a>
+        </div>
+        {% endif %}
+        
+        <!-- Official Links -->
+        <div class="official-links">
+            <h3>Important Links</h3>
+            <ul>
+                {% if job.notification_pdf %}
+                <li><a href="{{ job.notification_pdf }}" target="_blank">Download Official Notification</a></li>
+                {% endif %}
+                <li><a href="{{ job.source_url }}" target="_blank">Official Website</a></li>
+            </ul>
+        </div>
+        
+        <!-- Milestones -->
+        {% if milestones %}
+        <div class="milestones">
+            <h3>Important Dates & Updates</h3>
+            <ul>
+                {% for milestone in milestones %}
+                <li>
+                    <strong>{{ milestone.title }}</strong> - {{ milestone.milestone_date|date:"d M Y" }}
+                    {% if milestone.description %}
+                    <br><small>{{ milestone.description }}</small>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        <!-- Related Jobs -->
+        {% if related_jobs %}
+        <div class="related-jobs">
+            <h3>Related Jobs</h3>
+            {% for related_job in related_jobs %}
+            <a href="{{ related_job.get_absolute_url }}" class="related-job">
+                <strong>{{ related_job.title }}</strong><br>
+                <small>{{ related_job.source.name }} | {{ related_job.category.name }}</small>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
