@@ -58,32 +58,109 @@
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### 🐳 Docker Development Setup (Recommended)
 
-- **Python 3.12+**
-- **Node.js 18+**
-- **PostgreSQL 14+** (for production)
-- **Redis 6+** (for caching and Celery)
+The fastest way to get started with SarkariBot is using Docker. This approach ensures consistency across all platforms and eliminates "works on my machine" issues.
 
-### 1. Clone Repository
+#### Prerequisites
+
+- **Docker** (Latest version)
+- **Docker Compose** (Usually included with Docker)
+- **Git**
+
+#### 1. Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/sarkaribot.git
+git clone https://github.com/lavkushry/sarkaribot.git
 cd sarkaribot
 ```
 
-### 2. Backend Setup
+#### 2. Start Development Environment
+
+```bash
+# Linux/macOS
+./scripts/dev.sh start
+
+# Windows
+scripts\dev.bat start
+```
+
+That's it! 🎉 The script will:
+- Build all necessary Docker images
+- Start PostgreSQL database
+- Start Redis for caching
+- Launch Django backend with auto-reload
+- Launch React frontend with hot-reload
+- Start Celery workers for background tasks
+
+#### 3. Access Application
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000/api/v1/
+- **Admin Panel**: http://localhost:8000/admin/
+- **API Documentation**: http://localhost:8000/api/docs/
+
+#### 4. Create Superuser (Optional)
+
+```bash
+# Linux/macOS
+./scripts/dev.sh createsuperuser
+
+# Windows
+scripts\dev.bat createsuperuser
+```
+
+### 📋 Development Commands
+
+```bash
+# View logs
+./scripts/dev.sh logs
+
+# Stop services
+./scripts/dev.sh stop
+
+# Restart everything
+./scripts/dev.sh restart
+
+# Run backend tests
+./scripts/dev.sh test-backend
+
+# Run frontend tests
+./scripts/dev.sh test-frontend
+
+# Open Django shell
+./scripts/dev.sh shell-backend
+
+# Access database
+./scripts/dev.sh shell-db
+
+# View all available commands
+./scripts/dev.sh help
+```
+
+### 🛠️ Manual Setup (Alternative)
+
+If you prefer not to use Docker:
+
+#### Prerequisites
+
+- **Python 3.12+**
+- **Node.js 18+**
+- **PostgreSQL 14+**
+- **Redis 6+**
+
+#### Backend Setup
 
 ```bash
 # Navigate to backend
-cd backend
+cd sarkaribot/backend
 
 # Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements/dev.txt
+pip install -r requirements/development.txt
 
 # Environment configuration
 cp .env.example .env
@@ -93,18 +170,15 @@ cp .env.example .env
 python manage.py migrate
 python manage.py createsuperuser
 
-# Create sample data
-python create_sample_data.py
-
 # Start development server
 python manage.py runserver
 ```
 
-### 3. Frontend Setup
+#### Frontend Setup
 
 ```bash
 # Navigate to frontend (new terminal)
-cd frontend
+cd sarkaribot/frontend
 
 # Install dependencies
 npm install
@@ -113,12 +187,18 @@ npm install
 npm start
 ```
 
-### 4. Access Application
+### 🔧 Troubleshooting
 
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000/api/v1/
-- **Admin Panel**: http://localhost:8000/admin/
-- **API Documentation**: http://localhost:8000/api/docs/
+If you encounter any issues with the Docker setup, see our comprehensive [Docker Troubleshooting Guide](docs/DOCKER_TROUBLESHOOTING.md).
+
+Common fixes:
+```bash
+# Reset everything
+./scripts/dev.sh stop
+./scripts/dev.sh clean
+./scripts/dev.sh build
+./scripts/dev.sh start
+```
 
 ## 📁 Project Structure
 
