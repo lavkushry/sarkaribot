@@ -310,6 +310,9 @@ class NLPSEOEngine:
         }
 
 
+# Backward compatibility alias
+SEOEngine = NLPSEOEngine
+
 # Global instance for use throughout the application
 # This ensures consistent class naming across the codebase
 seo_engine = NLPSEOEngine()

@@ -25,7 +25,7 @@ from .serializers import (
     SitemapEntrySerializer,
     SEOAuditLogSerializer
 )
-from .engine import NLPSEOEngine
+from .engine import seo_engine
 from apps.jobs.models import JobPosting
 
 logger = logging.getLogger(__name__)
@@ -208,8 +208,8 @@ class SEOGenerateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Initialize SEO engine
-            seo_engine = NLPSEOEngine()
+            # Use the global SEO engine instance
+            # seo_engine is already initialized
             
             # Get job data if job_id provided
             if job_id:
