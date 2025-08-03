@@ -57,7 +57,7 @@ class ApiService {
   // Jobs API
   async getJobs(params = {}) {
     try {
-      const response = await this.client.get('/api/jobs/', { params });
+      const response = await this.client.get('/api/v1/jobs/', { params });
       return response.data;
     } catch (error) {
       throw error;
@@ -66,7 +66,7 @@ class ApiService {
   
   async getJobBySlug(slug) {
     try {
-      const response = await this.client.get(`/api/jobs/${slug}/`);
+      const response = await this.client.get(`/api/v1/jobs/${slug}/`);
       return response.data;
     } catch (error) {
       throw error;
@@ -75,7 +75,7 @@ class ApiService {
   
   async getLatestJobs() {
     try {
-      const response = await this.client.get('/api/jobs/latest/');
+      const response = await this.client.get('/api/v1/jobs/latest/');
       return response.data;
     } catch (error) {
       throw error;
@@ -84,7 +84,16 @@ class ApiService {
   
   async getRecentJobs() {
     try {
-      const response = await this.client.get('/api/jobs/recent/');
+      const response = await this.client.get('/api/v1/jobs/recent/');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  async getTrendingJobs() {
+    try {
+      const response = await this.client.get('/api/v1/jobs/trending/');
       return response.data;
     } catch (error) {
       throw error;
@@ -94,7 +103,7 @@ class ApiService {
   // Categories API
   async getCategories() {
     try {
-      const response = await this.client.get('/api/categories/');
+      const response = await this.client.get('/api/v1/categories/');
       return response.data;
     } catch (error) {
       throw error;
@@ -103,7 +112,27 @@ class ApiService {
   
   async getCategoryJobs(slug) {
     try {
-      const response = await this.client.get(`/api/categories/${slug}/jobs/`);
+      const response = await this.client.get(`/api/v1/categories/${slug}/jobs/`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  // Stats API
+  async getStats() {
+    try {
+      const response = await this.client.get('/api/v1/stats/');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  // Health Check API
+  async getHealthCheck() {
+    try {
+      const response = await this.client.get('/api/v1/health/');
       return response.data;
     } catch (error) {
       throw error;
@@ -113,7 +142,7 @@ class ApiService {
   // Sources API
   async getSources() {
     try {
-      const response = await this.client.get('/api/sources/');
+      const response = await this.client.get('/api/v1/sources/');
       return response.data;
     } catch (error) {
       throw error;
@@ -123,7 +152,7 @@ class ApiService {
   // Analytics API
   async getDashboardStats() {
     try {
-      const response = await this.client.get('/api/analytics/dashboard-stats/');
+      const response = await this.client.get('/api/v1/analytics/dashboard-stats/');
       return response.data;
     } catch (error) {
       throw error;
@@ -132,7 +161,7 @@ class ApiService {
   
   async getPopularJobs() {
     try {
-      const response = await this.client.get('/api/analytics/popular-jobs/');
+      const response = await this.client.get('/api/v1/analytics/popular-jobs/');
       return response.data;
     } catch (error) {
       throw error;
@@ -143,7 +172,7 @@ class ApiService {
   async searchJobs(query, params = {}) {
     try {
       const searchParams = { q: query, ...params };
-      const response = await this.client.get('/api/jobs/search/', { params: searchParams });
+      const response = await this.client.get('/api/v1/search/', { params: searchParams });
       return response.data;
     } catch (error) {
       throw error;

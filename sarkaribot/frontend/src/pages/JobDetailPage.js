@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import apiService from '../services/apiService';
-import './JobDetailPage.css';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const JobDetailPage = () => {
   const { slug } = useParams();
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   const [job, setJob] = useState(null);
-  const [similarJobs, setSimilarJobs] = useState([]);
+  const [relatedJobs, setRelatedJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -15,22 +16,21 @@ const JobDetailPage = () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const jobData = await apiService.getJobBySlug(slug);
+
+        const [jobData, relatedData] = await Promise.all([
+          apiService.getJobBySlug(slug),
+          apiService.getLatestJobs({ limit: 5 })
+        ]);
+
         setJob(jobData);
-        
-        // Load similar jobs if job ID is available
-        if (jobData.id) {
-          try {
-            const similarData = await apiService.getSimilarJobs(jobData.id);
-            setSimilarJobs(similarData.results || similarData);
-          } catch (err) {
-            console.warn('Failed to load similar jobs:', err);
-          }
-        }
+        setRelatedJobs((relatedData.results || relatedData).filter(j => j.slug !== slug));
       } catch (err) {
-        console.error('Job detail loading failed:', err);
-        setError('Job not found or failed to load. Please try again.');
+        console.error('Failed to load job details:', err);
+        if (err.response?.status === 404) {
+          setError('Job not found. It may have been removed or the URL is incorrect.');
+        } else {
+          setError('Failed to load job details. Please try again.');
+        }
       } finally {
         setLoading(false);
       }
@@ -54,128 +54,178 @@ const JobDetailPage = () => {
   }, [job]);
 
   if (loading) {
+    return <LoadingSpinner text="Loading job details..." />;
+  }
+
+  if (error) {
     return (
-      <div className="job-detail-loading">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-          <p>Loading job details...</p>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">❌</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Job Not Found</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button 
+              onClick={() => navigate(-1)}
+              className="btn btn-secondary"
+            >
+              ← Go Back
+            </button>
+            <Link to="/jobs" className="btn btn-primary">
+              Browse All Jobs
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (error || !job) {
-    return (
-      <div className="job-detail-error">
-        <div className="error-message">
-          <h2>Job Not Found</h2>
-          <p>{error || 'The requested job posting could not be found.'}</p>
-          <a href="/" className="back-home-btn">← Back to Home</a>
-        </div>
-      </div>
-    );
+  if (!job) {
+    return null;
   }
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      announced: { label: 'Latest Job', class: 'badge-success' },
+      admit_card: { label: 'Admit Card', class: 'badge-warning' },
+      answer_key: { label: 'Answer Key', class: 'badge-info' },
+      result: { label: 'Result', class: 'badge-danger' },
+      archived: { label: 'Archived', class: 'badge-secondary' }
+    };
+    
+    const config = statusConfig[status] || statusConfig.announced;
+    return <span className={`badge ${config.class}`}>{config.label}</span>;
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'TBD';
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const getDaysRemaining = (dateString) => {
+    if (!dateString) return null;
+    const diff = new Date(dateString) - new Date();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    return days > 0 ? days : 0;
+  };
+
+  const daysLeft = getDaysRemaining(job.application_end_date);
 
   return (
-    <div className="job-detail-page">
-      {/* Breadcrumbs */}
-      <nav className="breadcrumbs">
-        <div className="container">
-          <a href="/">Home</a>
-          <span className="separator">›</span>
-          <a href="/jobs">Jobs</a>
-          <span className="separator">›</span>
-          <a href={`/category/${job.category?.slug}`}>{job.category?.name}</a>
-          <span className="separator">›</span>
-          <span className="current">{job.title}</span>
-        </div>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
+      <nav className="mb-6">
+        <ol className="flex items-center space-x-2 text-sm text-gray-500">
+          <li><Link to="/" className="hover:text-primary-600">Home</Link></li>
+          <li>→</li>
+          <li><Link to="/jobs" className="hover:text-primary-600">Jobs</Link></li>
+          <li>→</li>
+          <li><Link to={`/category/${job.category?.slug}`} className="hover:text-primary-600">{job.category?.name}</Link></li>
+          <li>→</li>
+          <li className="text-gray-900 font-medium">{job.title}</li>
+        </ol>
       </nav>
 
-      <div className="container">
-        <div className="job-detail-content">
-          {/* Main Content */}
-          <div className="main-content">
-            {/* Job Header */}
-            <div className="job-header">
-              <div className="job-title-section">
-                <h1>{job.title}</h1>
-                <div className="job-badges">
-                  {job.is_new && <span className="badge new-badge">New</span>}
-                  {job.is_expiring_soon && <span className="badge urgent-badge">Urgent</span>}
-                  <span className="badge status-badge">{job.category?.name}</span>
-                </div>
-              </div>
-              <div className="job-meta">
-                <div className="meta-item">
-                  <strong>Organization:</strong> {job.source?.display_name || job.source?.name}
-                </div>
-                <div className="meta-item">
-                  <strong>Total Posts:</strong> {job.total_posts?.toLocaleString()}
-                </div>
-                <div className="meta-item">
-                  <strong>Department:</strong> {job.department || 'Not specified'}
-                </div>
-                <div className="meta-item">
-                  <strong>Posted:</strong> {new Date(job.created_at).toLocaleDateString('en-IN')}
-                </div>
-              </div>
-            </div>
-
-            {/* Important Dates */}
-            <div className="important-dates">
-              <h2>Important Dates</h2>
-              <div className="dates-grid">
-                {job.notification_date && (
-                  <div className="date-item">
-                    <span className="date-label">Notification Date:</span>
-                    <span className="date-value">{new Date(job.notification_date).toLocaleDateString('en-IN')}</span>
-                  </div>
-                )}
-                {job.application_end_date && (
-                  <div className="date-item">
-                    <span className="date-label">Last Date to Apply:</span>
-                    <span className="date-value">
-                      {new Date(job.application_end_date).toLocaleDateString('en-IN')}
-                      {job.days_remaining > 0 && (
-                        <span className="days-remaining">({job.days_remaining} days left)</span>
-                      )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-2">
+          {/* Header */}
+          <div className="card mb-6">
+            <div className="card-body">
+              <div className="flex flex-wrap items-start justify-between mb-4">
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                    {job.title}
+                  </h1>
+                  <div className="flex flex-wrap items-center gap-3 mb-3">
+                    {getStatusBadge(job.status)}
+                    {job.is_new && <span className="badge badge-success">New</span>}
+                    {job.is_expiring_soon && <span className="badge badge-warning">Urgent</span>}
+                    <span className="text-gray-600">by {job.source?.display_name || job.source?.name}</span>
+                    <span className="text-gray-600">•</span>
+                    <span className="text-gray-600">
+                      Posted {formatDate(job.created_at)}
                     </span>
                   </div>
-                )}
-                {job.exam_date && (
-                  <div className="date-item">
-                    <span className="date-label">Exam Date:</span>
-                    <span className="date-value">{new Date(job.exam_date).toLocaleDateString('en-IN')}</span>
+                </div>
+                
+                {job.application_link && (
+                  <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
+                    <a
+                      href={job.application_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary btn-lg"
+                    >
+                      Apply Now →
+                    </a>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Job Description */}
-            <div className="job-description">
-              <h2>Job Description</h2>
-              <div className="description-content">
-                {job.description ? (
-                  <div dangerouslySetInnerHTML={{ __html: job.description }} />
-                ) : (
-                  <p>Complete job details will be available in the official notification.</p>
-                )}
+              {daysLeft > 0 && (
+                <div className="alert alert-warning">
+                  <strong>⏰ Last date to apply: {formatDate(job.application_end_date)}</strong>
+                  <span className="ml-2">({daysLeft} days remaining)</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Job Details */}
+          <div className="card mb-6">
+            <div className="card-header">
+              <h2 className="text-xl font-semibold">Job Details</h2>
+            </div>
+            <div className="card-body">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <DetailItem label="Organization" value={job.source?.display_name || job.source?.name} />
+                <DetailItem label="Category" value={job.category?.name} />
+                <DetailItem label="Total Posts" value={job.total_posts?.toLocaleString() || 'Not specified'} />
+                <DetailItem label="Department" value={job.department || 'Not specified'} />
+                <DetailItem label="Job Location" value={job.job_location || 'Various'} />
+                <DetailItem label="Application Mode" value={job.application_mode || 'Online'} />
+                <DetailItem label="Application Start" value={formatDate(job.application_start_date)} />
+                <DetailItem label="Application End" value={formatDate(job.application_end_date)} />
               </div>
             </div>
+          </div>
 
-            {/* Eligibility Criteria */}
-            {job.qualification && (
-              <div className="eligibility-section">
-                <h2>Eligibility Criteria</h2>
-                <div className="eligibility-content">
-                  <div className="eligibility-item">
-                    <strong>Educational Qualification:</strong>
-                    <p>{job.qualification}</p>
+          {/* Description */}
+          {job.description && (
+            <div className="card mb-6">
+              <div className="card-header">
+                <h2 className="text-xl font-semibold">Job Description</h2>
+              </div>
+              <div className="card-body">
+                <div 
+                  className="prose max-w-none"
+                  dangerouslySetInnerHTML={{ __html: job.description }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Eligibility */}
+          {job.qualification && (
+            <div className="card mb-6">
+              <div className="card-header">
+                <h2 className="text-xl font-semibold">Eligibility Criteria</h2>
+              </div>
+              <div className="card-body">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Educational Qualification</h4>
+                    <p className="text-gray-700">{job.qualification}</p>
                   </div>
                   {(job.min_age || job.max_age) && (
-                    <div className="eligibility-item">
-                      <strong>Age Limit:</strong>
-                      <p>
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Age Limit</h4>
+                      <p className="text-gray-700">
                         {job.min_age && `Minimum: ${job.min_age} years`}
                         {job.min_age && job.max_age && ' | '}
                         {job.max_age && `Maximum: ${job.max_age} years`}
@@ -184,154 +234,219 @@ const JobDetailPage = () => {
                   )}
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Application Fee */}
-            {job.application_fee && (
-              <div className="application-fee">
-                <h2>Application Fee</h2>
-                <p>{job.application_fee}</p>
-              </div>
-            )}
-
-            {/* Salary Information */}
-            {(job.salary_min || job.salary_max) && (
-              <div className="salary-info">
-                <h2>Salary Details</h2>
-                <p>
-                  {job.salary_min && `₹${job.salary_min.toLocaleString()}`}
-                  {job.salary_min && job.salary_max && ' - '}
-                  {job.salary_max && `₹${job.salary_max.toLocaleString()}`}
-                  {(!job.salary_min && !job.salary_max) && 'As per government norms'}
-                </p>
-              </div>
-            )}
-
-            {/* How to Apply */}
-            <div className="how-to-apply">
-              <h2>How to Apply</h2>
-              <div className="apply-content">
-                <p>Candidates can apply through the official website or notification link provided below.</p>
-                <div className="apply-buttons">
-                  {job.application_link && (
-                    <a 
-                      href={job.application_link} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="apply-btn primary"
-                    >
-                      Apply Online
-                    </a>
-                  )}
-                  {job.notification_pdf && (
-                    <a 
-                      href={job.notification_pdf} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="apply-btn secondary"
-                    >
-                      Download Notification
-                    </a>
-                  )}
-                  {job.source_url && (
-                    <a 
-                      href={job.source_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="apply-btn secondary"
-                    >
-                      Official Website
-                    </a>
-                  )}
-                </div>
+          {/* Important Dates */}
+          <div className="card mb-6">
+            <div className="card-header">
+              <h2 className="text-xl font-semibold">Important Dates</h2>
+            </div>
+            <div className="card-body">
+              <div className="space-y-3">
+                {job.notification_date && (
+                  <DateItem 
+                    label="Notification Date" 
+                    date={job.notification_date}
+                    icon="📋"
+                  />
+                )}
+                <DateItem 
+                  label="Application Start Date" 
+                  date={job.application_start_date}
+                  icon="🗓️"
+                />
+                <DateItem 
+                  label="Application End Date" 
+                  date={job.application_end_date}
+                  icon="⏰"
+                  highlight={daysLeft > 0 && daysLeft <= 7}
+                />
+                {job.exam_date && (
+                  <DateItem 
+                    label="Exam Date" 
+                    date={job.exam_date}
+                    icon="📝"
+                  />
+                )}
               </div>
             </div>
+          </div>
 
-            {/* Milestones */}
-            {job.milestones && job.milestones.length > 0 && (
-              <div className="milestones-section">
-                <h2>Important Updates</h2>
-                <div className="milestones-list">
+          {/* Salary */}
+          {(job.salary_min || job.salary_max || job.application_fee) && (
+            <div className="card mb-6">
+              <div className="card-header">
+                <h2 className="text-xl font-semibold">Salary & Fees</h2>
+              </div>
+              <div className="card-body space-y-4">
+                {(job.salary_min || job.salary_max) && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Salary Details</h4>
+                    <p className="text-gray-700">
+                      {job.salary_min && `₹${job.salary_min.toLocaleString()}`}
+                      {job.salary_min && job.salary_max && ' - '}
+                      {job.salary_max && `₹${job.salary_max.toLocaleString()}`}
+                      {(!job.salary_min && !job.salary_max) && 'As per government norms'}
+                    </p>
+                  </div>
+                )}
+                {job.application_fee && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Application Fee</h4>
+                    <p className="text-gray-700">{job.application_fee}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Links */}
+          <div className="card">
+            <div className="card-header">
+              <h2 className="text-xl font-semibold">Important Links</h2>
+            </div>
+            <div className="card-body">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {job.notification_pdf && (
+                  <LinkButton 
+                    href={job.notification_pdf}
+                    icon="📋"
+                    text="Official Notification"
+                  />
+                )}
+                {job.application_link && (
+                  <LinkButton 
+                    href={job.application_link}
+                    icon="✍️"
+                    text="Apply Online"
+                    primary
+                  />
+                )}
+                {job.source_url && (
+                  <LinkButton 
+                    href={job.source_url}
+                    icon="🏛️"
+                    text="Official Website"
+                  />
+                )}
+                {job.syllabus_link && (
+                  <LinkButton 
+                    href={job.syllabus_link}
+                    icon="📚"
+                    text="Syllabus"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Milestones */}
+          {job.milestones && job.milestones.length > 0 && (
+            <div className="card mt-6">
+              <div className="card-header">
+                <h2 className="text-xl font-semibold">Important Updates</h2>
+              </div>
+              <div className="card-body">
+                <div className="space-y-4">
                   {job.milestones.map((milestone) => (
-                    <div key={milestone.id} className="milestone-item">
-                      <div className="milestone-date">
-                        {new Date(milestone.date).toLocaleDateString('en-IN')}
+                    <div key={milestone.id} className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                      <div className="flex-shrink-0 w-16 text-center">
+                        <div className="text-sm font-medium text-primary-600">
+                          {new Date(milestone.date).toLocaleDateString('en-IN', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </div>
                       </div>
-                      <div className="milestone-content">
-                        <h3>{milestone.title}</h3>
-                        <p>{milestone.description}</p>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900 mb-1">{milestone.title}</h3>
+                        <p className="text-gray-600 text-sm">{milestone.description}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="sidebar">
-            {/* Quick Info */}
-            <div className="quick-info-card">
-              <h3>Quick Information</h3>
-              <div className="info-list">
-                <div className="info-item">
-                  <span className="label">Status:</span>
-                  <span className="value">{job.application_status}</span>
-                </div>
-                <div className="info-item">
-                  <span className="label">Posts:</span>
-                  <span className="value">{job.total_posts?.toLocaleString()}</span>
-                </div>
-                <div className="info-item">
-                  <span className="label">Category:</span>
-                  <span className="value">{job.category?.name}</span>
-                </div>
-                <div className="info-item">
-                  <span className="label">Source:</span>
-                  <span className="value">{job.source?.display_name}</span>
-                </div>
-              </div>
             </div>
+          )}
+        </div>
 
-            {/* Similar Jobs */}
-            {similarJobs.length > 0 && (
-              <div className="similar-jobs-card">
-                <h3>Similar Jobs</h3>
-                <div className="similar-jobs-list">
-                  {similarJobs.slice(0, 5).map((similarJob) => (
-                    <div key={similarJob.id} className="similar-job-item">
-                      <a href={`/jobs/${similarJob.slug}`}>
-                        <h4>{similarJob.title}</h4>
-                        <p>{similarJob.source_name} • {similarJob.total_posts} Posts</p>
-                      </a>
-                    </div>
-                  ))}
-                </div>
+        {/* Sidebar */}
+        <div className="lg:col-span-1">
+          {/* Quick Info */}
+          <div className="card mb-6">
+            <div className="card-header">
+              <h3 className="text-lg font-semibold">Quick Information</h3>
+            </div>
+            <div className="card-body space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Status:</span>
+                <span className="font-medium">{job.application_status}</span>
               </div>
-            )}
-
-            {/* Share */}
-            <div className="share-card">
-              <h3>Share this Job</h3>
-              <div className="share-buttons">
-                <button 
-                  onClick={() => navigator.share && navigator.share({
-                    title: job.title,
-                    url: window.location.href
-                  })}
-                  className="share-btn"
-                >
-                  📱 Share
-                </button>
-                <button 
-                  onClick={() => navigator.clipboard.writeText(window.location.href)}
-                  className="share-btn"
-                >
-                  📋 Copy Link
-                </button>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Posts:</span>
+                <span className="font-medium">{job.total_posts?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Category:</span>
+                <span className="font-medium">{job.category?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Source:</span>
+                <span className="font-medium">{job.source?.display_name}</span>
               </div>
             </div>
           </div>
+
+          {/* Quick Actions */}
+          <div className="card mb-6">
+            <div className="card-header">
+              <h3 className="text-lg font-semibold">Quick Actions</h3>
+            </div>
+            <div className="card-body space-y-3">
+              <button className="btn btn-outline-primary w-full">
+                🔖 Bookmark Job
+              </button>
+              <button className="btn btn-outline-primary w-full">
+                📧 Set Alert
+              </button>
+              <button 
+                onClick={() => navigator.share && navigator.share({
+                  title: job.title,
+                  url: window.location.href
+                })}
+                className="btn btn-outline-primary w-full"
+              >
+                📤 Share Job
+              </button>
+              <button 
+                onClick={() => navigator.clipboard.writeText(window.location.href)}
+                className="btn btn-outline-primary w-full"
+              >
+                📋 Copy Link
+              </button>
+            </div>
+          </div>
+
+          {/* Related Jobs */}
+          {relatedJobs.length > 0 && (
+            <div className="card">
+              <div className="card-header">
+                <h3 className="text-lg font-semibold">Related Jobs</h3>
+              </div>
+              <div className="card-body space-y-4">
+                {relatedJobs.slice(0, 4).map((relatedJob) => (
+                  <RelatedJobItem key={relatedJob.id} job={relatedJob} />
+                ))}
+                <Link 
+                  to={`/jobs?category=${job.category?.slug}`}
+                  className="btn btn-secondary w-full"
+                >
+                  View More in {job.category?.name}
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -344,5 +459,63 @@ const JobDetailPage = () => {
     </div>
   );
 };
+
+// Supporting Components
+const DetailItem = ({ label, value }) => (
+  <div>
+    <dt className="text-sm font-medium text-gray-500">{label}</dt>
+    <dd className="mt-1 text-sm text-gray-900">{value}</dd>
+  </div>
+);
+
+const DateItem = ({ label, date, icon, highlight = false }) => (
+  <div className={`flex items-center justify-between p-3 rounded-lg ${highlight ? 'bg-warning-50 border border-warning-200' : 'bg-gray-50'}`}>
+    <div className="flex items-center">
+      <span className="text-lg mr-3">{icon}</span>
+      <span className="font-medium text-gray-900">{label}</span>
+    </div>
+    <span className={`text-sm ${highlight ? 'text-warning-800 font-semibold' : 'text-gray-600'}`}>
+      {date ? new Date(date).toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }) : 'TBD'}
+    </span>
+  </div>
+);
+
+const LinkButton = ({ href, icon, text, primary = false }) => (
+  <a
+    href={href}
+    target="_blank"
+    rel="noopener noreferrer"
+    className={`btn w-full ${primary ? 'btn-primary' : 'btn-outline-primary'}`}
+  >
+    <span className="mr-2">{icon}</span>
+    {text}
+  </a>
+);
+
+const RelatedJobItem = ({ job }) => (
+  <div className="border-l-4 border-primary-200 pl-4">
+    <h4 className="font-medium text-gray-900 mb-1">
+      <Link 
+        to={`/jobs/${job.slug}`}
+        className="hover:text-primary-600 transition-colors duration-200"
+      >
+        {job.title}
+      </Link>
+    </h4>
+    <div className="text-sm text-gray-600">
+      <span>{job.source_name}</span>
+      {job.total_posts && (
+        <>
+          <span className="mx-1">•</span>
+          <span>{job.total_posts} Posts</span>
+        </>
+      )}
+    </div>
+  </div>
+);
 
 export default JobDetailPage;
