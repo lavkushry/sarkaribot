@@ -1,113 +1,105 @@
 #!/bin/bash
 
-# SarkariBot Local Development Setup
-# Sets up local development environment without PostgreSQL for testing
+# SarkariBot Local Development Setup Script
+# This script sets up the development environment without requiring PostgreSQL
 
-echo "🤖 SarkariBot Local Development Setup"
-echo "===================================="
+set -e  # Exit on any error
+
+echo "🚀 Setting up SarkariBot for local development..."
+echo "📋 This setup uses SQLite (no PostgreSQL required)"
+
+# Check if we're in the backend directory or repository root
+if [ -f "manage.py" ]; then
+    # We're in the backend directory
+    BACKEND_DIR="."
+elif [ -f "sarkaribot/backend/manage.py" ]; then
+    # We're in the repository root
+    BACKEND_DIR="sarkaribot/backend"
+elif [ -f "backend/manage.py" ]; then
+    # We're in the sarkaribot directory
+    BACKEND_DIR="backend"
+else
+    echo "❌ Please run this script from the repository root, sarkaribot directory, or backend directory"
+    exit 1
+fi
 
 # Navigate to backend directory
-cd /home/lavku/govt/sarkaribot/backend
+cd "$BACKEND_DIR"
+
+echo "📂 Working in directory: $(pwd)"
+
+# Create virtual environment if it doesn't exist
+if [ ! -d "venv" ]; then
+    echo "🐍 Creating Python virtual environment..."
+    python3 -m venv venv
+else
+    echo "✅ Virtual environment already exists"
+fi
 
 # Activate virtual environment
-echo "📦 Activating virtual environment..."
+echo "🔌 Activating virtual environment..."
 source venv/bin/activate
 
-# Install core Django packages first (excluding PostgreSQL)
-echo "📥 Installing core Django packages..."
-pip install Django==4.2.14
-pip install djangorestframework==3.14.0
-pip install django-cors-headers==4.3.1
-pip install django-filter==23.2
-pip install django-extensions==3.2.3
+# Upgrade pip
+echo "📦 Upgrading pip..."
+pip install --upgrade pip
 
-# Install NLP packages
-echo "🧠 Installing NLP packages..."
-pip install spacy==3.6.1
-pip install nltk==3.8.1
+# Install development requirements (without PostgreSQL)
+echo "📚 Installing development dependencies..."
+pip install -r requirements/development.txt
 
-# Install other utilities
-echo "🔧 Installing utilities..."
-pip install python-decouple==3.8
-pip install pillow==10.0.0
-pip install python-slugify==8.0.1
-pip install requests==2.31.0
-pip install beautifulsoup4==4.12.2
-pip install lxml==4.9.3
+# Create .env file if it doesn't exist
+if [ ! -f ".env" ]; then
+    echo "⚙️ Creating .env file for local development..."
+    cp .env.example .env
+    echo "✅ Created .env file with SQLite configuration"
+else
+    echo "✅ .env file already exists"
+fi
 
-# Install spaCy English model
-echo "📚 Installing spaCy English model..."
-python -m spacy download en_core_web_sm
+# Create necessary directories
+echo "📁 Creating necessary directories..."
+mkdir -p logs
+mkdir -p media
+mkdir -p static
+mkdir -p staticfiles
 
-# Verify spaCy installation
-echo "🔍 Verifying spaCy installation..."
-python -c "
-import spacy
-try:
-    nlp = spacy.load('en_core_web_sm')
-    print('✅ spaCy English model loaded successfully')
-    print(f'   Model version: {nlp.meta.get(\"version\", \"unknown\")}')
-except Exception as e:
-    print(f'❌ spaCy model failed to load: {e}')
-    exit(1)
-"
+# Run Django checks
+echo "🔍 Running Django system checks..."
+export DJANGO_SETTINGS_MODULE="config.settings_local"
+python manage.py check
 
-# Test Django setup
-echo "🧪 Testing Django setup..."
-python -c "
-import django
-print(f'✅ Django version: {django.VERSION}')
-import rest_framework
-print('✅ Django REST Framework imported successfully')
-"
+# Run migrations
+echo "🗄️ Running database migrations..."
+python manage.py migrate
 
-# Create SEO migrations
-echo "📝 Creating SEO app migrations..."
-python manage.py makemigrations seo --settings=config.settings_local --empty --name initial
+# Create superuser prompt
+echo ""
+echo "👤 Would you like to create a superuser account? (y/n)"
+read -r create_superuser
+if [ "$create_superuser" = "y" ] || [ "$create_superuser" = "Y" ]; then
+    python manage.py createsuperuser
+fi
 
-# Test NLP SEO engine
-echo "🧪 Testing NLP SEO Engine..."
-python -c "
-import sys
-import os
-sys.path.append(os.getcwd())
-import django
-from django.conf import settings
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings_local')
-django.setup()
-
-from apps.seo.engine import seo_engine
-
-test_job_data = {
-    'title': 'SSC CGL 2025 Notification',
-    'description': 'Staff Selection Commission Combined Graduate Level Examination 2025',
-    'source': 'SSC',
-    'category': 'Central Government',
-    'department': 'Staff Selection Commission',
-    'total_posts': 5000,
-    'application_end_date': '2025-09-15'
-}
-
-try:
-    metadata = seo_engine.generate_seo_metadata(test_job_data)
-    print('✅ SEO Engine working correctly')
-    print(f'   Generated title: {metadata[\"seo_title\"]}')
-    print(f'   Keywords count: {len(metadata[\"keywords\"])}')
-    print(f'   Quality score: {metadata[\"quality_score\"]}')
-except Exception as e:
-    print(f'❌ SEO Engine test failed: {e}')
-    import traceback
-    traceback.print_exc()
-"
-
+# Success message
 echo ""
 echo "🎉 Local development setup complete!"
 echo ""
-echo "📋 What's installed:"
-echo "   ✅ Django 4.2.14"
-echo "   ✅ Django REST Framework"  
-echo "   ✅ spaCy with English model"
-echo "   ✅ Core utilities"
+echo "📊 Configuration:"
+echo "   • Database: SQLite (sarkaribot_dev.sqlite3)"
+echo "   • Cache: Dummy cache (no Redis required)"
+echo "   • Debug mode: Enabled"
+echo "   • Settings: config.settings_local"
 echo ""
-echo "🚀 You can now start development with:"
-echo "   python manage.py runserver --settings=config.settings_local"
+echo "🚀 To start development:"
+echo "   1. Activate virtual environment: source venv/bin/activate"
+echo "   2. Start Django server: python manage.py runserver"
+echo "   3. Access admin panel: http://localhost:8000/admin/"
+echo "   4. Access API docs: http://localhost:8000/api/docs/"
+echo ""
+echo "💡 For frontend development:"
+echo "   cd ../frontend"
+echo "   npm install"
+echo "   npm start"
+echo ""
+echo "✨ Happy coding!"
